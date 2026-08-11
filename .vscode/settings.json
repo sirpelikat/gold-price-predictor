@@ -1,5 +1,5 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "$env:PATH = \"C:\\Users\\danni\\Downloads\\flutter\\bin;\" + $env:PATH; flutter run",
   "python.analysis.extraPaths": [
     "backend"
   ]

@@ -4,16 +4,14 @@ from data_fetcher import get_historical_gold_data
 from datetime import timedelta
 
 def train_and_predict(days_to_predict=7):
-    # Fetch last 60 trading days for the trend
-    df = get_historical_gold_data(days=60)
+    # Fetch last 14 trading days to capture short-term momentum matching app trend
+    df = get_historical_gold_data(days=14)
     
     if df.empty:
         return []
 
-    # Prepare data for simple linear regression (predicting trend based on time)
-    df = df.dropna(subset=['Close'])
-    # Make a copy to avoid SettingWithCopyWarning if it was a slice
-    df = df.copy() 
+    # Prepare data for short-term linear regression
+    df = df.dropna(subset=['Close']).copy()
     df['DayIndex'] = list(range(len(df)))
     
     X = df[['DayIndex']]
@@ -22,17 +20,14 @@ def train_and_predict(days_to_predict=7):
     model = LinearRegression()
     model.fit(X, y)
     
-    # Predict future (last_day is simply len(df) - 1 since DayIndex starts at 0)
-    last_day = len(df) - 1
-    # The index of history() is usually a tz-aware datetime
+    # Anchor future predictions to smoothly continue from the latest closing price
     last_date = df.index[-1]
-    
-    future_X = pd.DataFrame({'DayIndex': range(last_day + 1, last_day + 1 + days_to_predict)})
-    predicted_prices = model.predict(future_X)
+    last_price = float(df['Close'].iloc[-1])
+    slope = float(model.coef_[0])
     
     predictions = []
-    for i, price in enumerate(predicted_prices):
-        val = float(price)
+    for i in range(days_to_predict):
+        val = last_price + (i + 1) * slope
         target_date = last_date + timedelta(days=i+1)
         predictions.append({
             "date": target_date.strftime('%Y-%m-%d'),

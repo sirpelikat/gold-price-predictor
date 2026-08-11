@@ -91,12 +91,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         children: [
           const Text(
-            'Live Gold Price (USD/oz)',
+            'Live Gold Price (MYR/g)',
             style: TextStyle(color: Colors.grey, fontSize: 16),
           ),
           const SizedBox(height: 10),
           Text(
-            currentPrice != null ? '\$${currentPrice!.toStringAsFixed(2)}' : '---',
+            currentPrice != null ? 'RM ${currentPrice!.toStringAsFixed(2)}' : '---',
             style: const TextStyle(
               color: Colors.amber, 
               fontSize: 36, 

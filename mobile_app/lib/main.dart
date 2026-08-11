@@ -11,7 +11,7 @@ class GoldApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gold Price Predictor',
+      title: 'My Gold Tracker',
       theme: ThemeData(
         brightness: Brightness.dark,
         primarySwatch: Colors.amber,

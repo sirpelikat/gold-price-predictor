@@ -41,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF1E1E1E),
       appBar: AppBar(
-        title: const Text('Gold Predictor', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('My Gold Tracker', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1E1E1E),
         elevation: 0,
         actions: [

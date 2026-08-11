@@ -14,7 +14,7 @@ def train_and_predict(days_to_predict=7):
     df = df.dropna(subset=['Close'])
     # Make a copy to avoid SettingWithCopyWarning if it was a slice
     df = df.copy() 
-    df['DayIndex'] = range(len(df))
+    df['DayIndex'] = list(range(len(df)))
     
     X = df[['DayIndex']]
     y = df['Close']
@@ -22,8 +22,8 @@ def train_and_predict(days_to_predict=7):
     model = LinearRegression()
     model.fit(X, y)
     
-    # Predict future
-    last_day = df['DayIndex'].iloc[-1]
+    # Predict future (last_day is simply len(df) - 1 since DayIndex starts at 0)
+    last_day = len(df) - 1
     # The index of history() is usually a tz-aware datetime
     last_date = df.index[-1]
     

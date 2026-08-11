@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // 127.0.0.1 for windows desktop execution
   // 10.0.2.2 for android emulator
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl = 'http://10.0.2.2:8000/api';
 
   static Future<double?> getCurrentPrice() async {
     try {

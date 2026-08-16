@@ -29,7 +29,7 @@ def get_historical_gold_data(days=365):
 def get_current_gold_price():
     """Fetches the latest available gold price."""
     ticker = yf.Ticker("GC=F")
-    data = ticker.history(period="1d")
+    data = ticker.history(period="5d")
     if data.empty:
         return None
     return data['Close'].iloc[-1]
@@ -38,10 +38,11 @@ def get_usd_myr_rate():
     """Fetches the latest USD to MYR exchange rate."""
     try:
         ticker = yf.Ticker("USDMYR=X")
-        data = ticker.history(period="1d")
+        data = ticker.history(period="5d")
         if not data.empty:
             return float(data['Close'].iloc[-1])
     except Exception as e:
         print(f"Error fetching exchange rate: {e}")
     # Fallback to a reasonable default if API fails
     return 4.45
+

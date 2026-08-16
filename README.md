@@ -20,7 +20,7 @@ A cross-platform mobile and web application that tracks real-time gold prices in
 - **Language**: Python 3.12+
 - **Framework**: FastAPI + Uvicorn
 - **Data Source**: `yfinance` (Gold Futures `GC=F`, USD/MYR `USDMYR=X`)
-- **Machine Learning**: `scikit-learn` (Linear Regression), `pandas`
+- **Machine Learning**: `scikit-learn` (`HistGradientBoostingRegressor`, `RandomForestRegressor`), `pandas`, `joblib`
 
 ### **Mobile App**
 - **Framework**: Flutter (Dart)
@@ -34,20 +34,56 @@ A cross-platform mobile and web application that tracks real-time gold prices in
 ```text
 gold-price-predictor/
 ├── backend/
-│   ├── data_fetcher.py   # Fetches live gold prices & exchange rates via yfinance
-│   ├── model.py          # Machine learning model for 7-day trend forecasting
-│   ├── main.py           # FastAPI REST API server
-│   └── requirements.txt  # Python dependencies
+│   ├── data/
+│   │   ├── gold_train_2010_2024.csv  # 2010–2024 training dataset (3,771 rows, 35 features)
+│   │   ├── gold_test_2025.csv        # 2025 out-of-sample test dataset (252 rows)
+│   │   └── eval_results_2025.csv     # Actual vs predicted 2025 comparison
+│   ├── data_fetcher.py               # Fetches live gold prices & exchange rates via yfinance
+│   ├── prepare_datasets.py           # Dataset generation & feature engineering pipeline
+│   ├── train.py                      # Model training & hyperparameter selection
+│   ├── evaluate.py                   # Out-of-sample 2025 accuracy benchmark evaluation
+│   ├── model.py                      # Multi-day recursive forecasting inference engine
+│   ├── gold_model.joblib             # Serialized production model artifact
+│   ├── main.py                       # FastAPI REST API server
+│   └── requirements.txt              # Python dependencies
 │
 └── mobile_app/
     ├── lib/
-    │   ├── main.dart             # App entry point
+    │   ├── main.dart                 # App entry point
     │   ├── screens/
-    │   │   └── dashboard.dart    # Dashboard UI with live price & charts
+    │   │   └── dashboard.dart        # Dashboard UI with live price & charts
     │   └── services/
-    │       └── api_service.dart  # Cross-platform API service client
-    ├── android/                  # Android project configuration & manifest
-    └── pubspec.yaml              # Flutter dependencies
+    │       └── api_service.dart      # Cross-platform API service client
+    ├── android/                      # Android project configuration & manifest
+    └── pubspec.yaml                  # Flutter dependencies
+```
+
+---
+
+## 🤖 Machine Learning Pipeline & Accuracy
+
+### Datasets
+- **Training Set (`2010–2024`)**: 3,771 trading days with technical indicators (RSI 14, MACD, SMAs 7/14/30/50, EMAs, 14d/30d Volatility, Day/Month seasonality, Lag returns).
+- **Test Set (`2025`)**: 252 out-of-sample trading days.
+
+### 2025 Out-of-Sample Test Benchmark
+| Metric | Value |
+| :--- | :--- |
+| **Model** | `HistGradientBoostingRegressor` |
+| **Mean Absolute Error (MAE)** | **$35.43 / oz** (~ **RM 5.07 / g**) |
+| **MAPE (Mean Error %)** | **1.00%** |
+| **R² Score** | **0.9895** |
+
+### Running the Pipeline
+```bash
+# 1. Download and build datasets (2010-2024 train, 2025 test)
+python prepare_datasets.py
+
+# 2. Train the model
+python train.py
+
+# 3. Evaluate against 2025 actuals
+python evaluate.py
 ```
 
 ---
@@ -77,7 +113,7 @@ python -m venv venv
 # source venv/bin/activate
 
 # Install dependencies
-pip install fastapi uvicorn yfinance scikit-learn pandas
+pip install fastapi uvicorn yfinance scikit-learn pandas joblib
 
 # Run the FastAPI server
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -111,7 +147,10 @@ flutter run
 | `/` | `GET` | API Health Check |
 | `/api/current-price` | `GET` | Returns live gold price in MYR/g and MYR/kg |
 | `/api/historical?days=7` | `GET` | Returns historical gold prices for specified days |
-| `/api/prediction` | `GET` | Returns AI predicted gold prices for next 7 days |
+| `/api/prediction` | `GET` | Returns AI predicted gold prices and logs them automatically |
+| `/api/model-metrics` | `GET` | Returns ML model training & 2025 test evaluation metrics |
+| `/api/prediction-logs` | `GET` | Returns historical logged predictions, errors, and running accuracy |
+| `/api/prediction-logs/sync`| `POST` | Syncs actual prices with past predictions to recalculate accuracy |
 
 ---
 

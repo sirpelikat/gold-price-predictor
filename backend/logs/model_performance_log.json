@@ -1,0 +1,21 @@
+{
+  "last_updated": "2026-08-16 21:57:29 UTC",
+  "total_predictions_logged": 252,
+  "total_evaluated_days": 252,
+  "overall_accuracy_percentage": 99.7,
+  "mean_absolute_error_usd": 10.75,
+  "mean_absolute_error_myr_g": 1.54,
+  "mape_percentage": 0.3,
+  "worst_day": {
+    "target_date": "2025-10-22",
+    "predicted_price_usd": 4111.03,
+    "actual_price_usd": 4044.4,
+    "percentage_error": 1.65
+  },
+  "best_day": {
+    "target_date": "2025-08-29",
+    "predicted_price_usd": 3473.6,
+    "actual_price_usd": 3473.7,
+    "percentage_error": 0.0
+  }
+}

@@ -79,4 +79,41 @@ def prediction():
         price_myr_g = (price_usd_oz * rate) / 31.1034768
         p['price'] = price_myr_g
         
+    # Automatically log predictions for continuous tracking and improvement
+    try:
+        from prediction_logger import log_predictions
+        log_predictions(preds, rate=rate)
+    except Exception as e:
+        print(f"Error logging predictions: {e}")
+        
     return {"predictions": preds}
+
+@app.get("/api/model-metrics")
+def model_metrics():
+    from model import load_model_artifact
+    
+    artifact = load_model_artifact()
+    metrics = {
+        "model_name": artifact["model_name"] if artifact else "HistGradientBoosting",
+        "training_period": "2010-01-01 to 2024-12-31",
+        "test_period": "2025-01-01 to 2025-12-31",
+        "features": artifact["feature_columns"] if artifact else [],
+        "2025_test_mae_usd": 35.43,
+        "2025_test_mae_myr_g": 5.07,
+        "2025_test_mape_percent": 1.00,
+        "2025_test_r2_score": 0.9895,
+        "2025_test_directional_accuracy_percent": 48.41
+    }
+    return metrics
+
+@app.get("/api/prediction-logs")
+def prediction_logs():
+    from prediction_logger import get_prediction_logs
+    return get_prediction_logs()
+
+@app.post("/api/prediction-logs/sync")
+def sync_prediction_logs():
+    from prediction_logger import sync_actual_prices_and_update_metrics
+    return sync_actual_prices_and_update_metrics()
+
+

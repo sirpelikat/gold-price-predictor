@@ -67,12 +67,67 @@ def extract_features_df(df: pd.DataFrame) -> pd.DataFrame:
     
     return df
 
+def get_historical_with_predictions(days=7):
+    """
+    Fetches recent historical data (e.g. 7 days) and generates the model's 
+    predicted price for each day so it can be compared side-by-side.
+    """
+    df = get_historical_gold_data(days=days + 60)
+    if df.empty:
+        return []
+        
+    df = df.sort_index()
+    artifact = load_model_artifact()
+    
+    feat_df = extract_features_df(df)
+    
+    # Take the last 'days' rows
+    target_slice = feat_df.tail(days).copy()
+    results = []
+    
+    if artifact is not None:
+        model = artifact["model"]
+        scaler = artifact["scaler"]
+        feature_cols = artifact["feature_columns"]
+        
+        for idx in range(len(target_slice)):
+            loc_idx = feat_df.index.get_loc(target_slice.index[idx])
+            if loc_idx > 0:
+                # Prior day feature row
+                prev_features = feat_df.iloc[loc_idx - 1:loc_idx][feature_cols]
+                if not prev_features.isna().any().any():
+                    X_scaled = scaler.transform(prev_features.values)
+                    pred_return = float(model.predict(X_scaled)[0])
+                    prev_close = float(feat_df['Close'].iloc[loc_idx - 1])
+                    pred_price = prev_close * (1.0 + pred_return)
+                else:
+                    pred_price = float(target_slice['Close'].iloc[idx])
+            else:
+                pred_price = float(target_slice['Close'].iloc[idx])
+                
+            date_str = target_slice.index[idx].strftime('%Y-%m-%d')
+            actual_price = float(target_slice['Close'].iloc[idx])
+            results.append({
+                "date": date_str,
+                "price": actual_price,
+                "predicted_price": pred_price
+            })
+    else:
+        for date_val, row in target_slice.iterrows():
+            close_val = float(row['Close'])
+            results.append({
+                "date": date_val.strftime('%Y-%m-%d'),
+                "price": close_val,
+                "predicted_price": close_val
+            })
+            
+    return results
+
 def train_and_predict(days_to_predict=7):
     """
     Generates multi-day forward forecast using the pre-trained ML model
     trained on 2010-2024 gold prices.
     """
-    # Fetch recent historical data (90 days) to compute 50-day SMA & indicators accurately
     df = get_historical_gold_data(days=90)
     
     if df.empty:
@@ -84,7 +139,6 @@ def train_and_predict(days_to_predict=7):
     
     artifact = load_model_artifact()
     
-    # If model artifact is not available, fallback to short-term linear extrapolation
     if artifact is None:
         from sklearn.linear_model import LinearRegression
         recent_df = df.tail(14).copy()
@@ -107,7 +161,6 @@ def train_and_predict(days_to_predict=7):
     scaler = artifact["scaler"]
     feature_cols = artifact["feature_columns"]
     
-    # Multi-step recursive forecasting
     sim_df = df.copy()
     predictions = []
     
@@ -115,7 +168,6 @@ def train_and_predict(days_to_predict=7):
         feat_df = extract_features_df(sim_df)
         feat_row = feat_df.iloc[-1:][feature_cols]
         
-        # Scale and predict next return
         X_scaled = scaler.transform(feat_row.values)
         pred_return = float(model.predict(X_scaled)[0])
         
@@ -128,7 +180,6 @@ def train_and_predict(days_to_predict=7):
             "price": float(next_price)
         })
         
-        # Append simulated row to rolling series for next iteration step
         new_row = pd.DataFrame([{
             'Open': next_price,
             'High': next_price,

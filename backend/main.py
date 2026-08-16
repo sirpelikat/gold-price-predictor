@@ -37,56 +37,61 @@ def current_price():
     
     return {
         "current_price": {
-            "myr_per_g": price_myr_g,
-            "myr_per_kg": price_myr_kg
+            "myr_per_g": round(price_myr_g, 2),
+            "myr_per_kg": round(price_myr_kg, 2),
+            "usd_per_oz": round(price_usd_oz, 2),
+            "usd_myr_rate": round(rate, 4)
         }
     }
 
 @app.get("/api/historical")
-def historical(days: int = 30):
-    df = get_historical_gold_data(days=days)
+def historical(days: int = 7):
+    from model import get_historical_with_predictions
+    data = get_historical_with_predictions(days=days)
     rate = get_usd_myr_rate()
     
-    if df.empty:
-        return {"data": []}
-        
-    # Convert index (Dates) to string for JSON serialization
-    df = df.reset_index()
-    
     historical_data = []
-    for index, row in df.iterrows():
-        close_val = row['Close']
-        if hasattr(close_val, "item"):
-            close_val = close_val.item()
-            
-        price_usd_oz = float(close_val)
+    for item in data:
+        price_usd_oz = float(item['price'])
+        pred_usd_oz = float(item.get('predicted_price', price_usd_oz))
+        
         price_myr_g = (price_usd_oz * rate) / 31.1034768
-            
+        pred_myr_g = (pred_usd_oz * rate) / 31.1034768
+        
         historical_data.append({
-            "date": row['Date'].strftime('%Y-%m-%d'),
-            "price": price_myr_g
+            "date": item['date'],
+            "price": round(price_myr_g, 2),
+            "predicted_price": round(pred_myr_g, 2),
+            "price_usd": round(price_usd_oz, 2),
+            "predicted_price_usd": round(pred_usd_oz, 2)
         })
         
     return {"data": historical_data}
 
 @app.get("/api/prediction")
-def prediction():
-    preds = train_and_predict(days_to_predict=7)
+def prediction(days: int = 7):
+    days_clamped = min(max(days, 1), 365)
+    preds = train_and_predict(days_to_predict=days_clamped)
     rate = get_usd_myr_rate()
     
+    formatted_preds = []
     for p in preds:
-        price_usd_oz = p['price']
+        price_usd_oz = float(p['price'])
         price_myr_g = (price_usd_oz * rate) / 31.1034768
-        p['price'] = price_myr_g
+        formatted_preds.append({
+            "date": p['date'],
+            "price": round(price_myr_g, 2),
+            "price_usd": round(price_usd_oz, 2)
+        })
         
     # Automatically log predictions for continuous tracking and improvement
     try:
         from prediction_logger import log_predictions
-        log_predictions(preds, rate=rate)
+        log_predictions(formatted_preds, rate=rate)
     except Exception as e:
         print(f"Error logging predictions: {e}")
         
-    return {"predictions": preds}
+    return {"predictions": formatted_preds}
 
 @app.get("/api/model-metrics")
 def model_metrics():

@@ -252,9 +252,11 @@ logged_at,target_date,predicted_price_myr_g,predicted_price_usd,actual_price_usd
 2025-Benchmark,2025-12-30,621.59,4344.66,4370.1,625.23,25.44,0.58,HistGradientBoosting
 2025-Benchmark,2025-12-31,622.49,4350.94,4325.6,618.87,25.34,0.59,HistGradientBoosting
 2026-08-16 21:57:52,2026-08-15,581.43,4428.16,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-16,578.37,4404.85,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-17,576.58,4391.22,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-18,571.75,4354.41,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-19,570.34,4343.65,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-20,569.4,4336.48,,,,,HistGradientBoosting
-2026-08-16 21:57:52,2026-08-21,569.08,4334.1,,,,,HistGradientBoosting
+2026-08-16 21:57:52,2026-08-16,578.37,4404.85,4432.0,634.09,27.15,0.61,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-17,580.28,4419.37,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-18,577.51,4398.28,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-19,572.46,4359.82,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-20,570.79,4347.1,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-21,568.67,4330.95,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-22,568.31,4328.21,,,,,HistGradientBoosting
+2026-08-16 22:40:52,2026-08-23,568.56,4330.12,,,,,HistGradientBoosting

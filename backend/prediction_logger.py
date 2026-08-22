@@ -57,17 +57,18 @@ def sync_actual_prices_and_update_metrics():
     """
     ensure_logs_dir()
     if not os.path.exists(PREDICTIONS_LOG_FILE):
-        return {"status": "no_logs_found", "records_updated": 0}
+        backfill_all_history()
         
     df = pd.read_csv(PREDICTIONS_LOG_FILE)
     if df.empty:
         return {"status": "empty_logs", "records_updated": 0}
         
-    # Find records with past target_dates that haven't been backfilled
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    unfilled = df[df['target_date'] <= today_str]
+    unfilled = df[(df['target_date'] <= today_str) & (df['actual_price_usd'].isna())]
     
     if unfilled.empty:
+        # Calculate summary even if up to date
+        _recalculate_metrics(df)
         return {"status": "up_to_date", "records_updated": 0}
         
     min_date = unfilled['target_date'].min()
@@ -103,13 +104,20 @@ def sync_actual_prices_and_update_metrics():
             updated_count += 1
             
     df.to_csv(PREDICTIONS_LOG_FILE, index=False)
-    
-    # Calculate cumulative accuracy metrics
+    metrics_summary = _recalculate_metrics(df)
+    return {"status": "success", "records_updated": updated_count, "metrics": metrics_summary}
+
+def _recalculate_metrics(df: pd.DataFrame):
+    usd_to_myr = 4.45
+    troy_oz_to_g = 31.1034768
     evaluated_rows = df.dropna(subset=['actual_price_usd', 'predicted_price_usd'])
     if not evaluated_rows.empty:
         mae_usd = float(evaluated_rows['error_usd'].mean())
         mape = float(evaluated_rows['percentage_error'].mean())
         overall_acc = round(100.0 - mape, 2)
+        
+        worst = evaluated_rows.sort_values(by='percentage_error', ascending=False).iloc[0]
+        best = evaluated_rows.sort_values(by='percentage_error', ascending=True).iloc[0]
         
         metrics_summary = {
             "last_updated": datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
@@ -119,23 +127,102 @@ def sync_actual_prices_and_update_metrics():
             "mean_absolute_error_usd": round(mae_usd, 2),
             "mean_absolute_error_myr_g": round((mae_usd * usd_to_myr) / troy_oz_to_g, 2),
             "mape_percentage": round(mape, 2),
-            "worst_day": evaluated_rows.sort_values(by='percentage_error', ascending=False).iloc[0][['target_date', 'predicted_price_usd', 'actual_price_usd', 'percentage_error']].to_dict(),
-            "best_day": evaluated_rows.sort_values(by='percentage_error', ascending=True).iloc[0][['target_date', 'predicted_price_usd', 'actual_price_usd', 'percentage_error']].to_dict()
+            "worst_day": {
+                "target_date": worst['target_date'],
+                "predicted_price_usd": worst['predicted_price_usd'],
+                "actual_price_usd": worst['actual_price_usd'],
+                "percentage_error": worst['percentage_error']
+            },
+            "best_day": {
+                "target_date": best['target_date'],
+                "predicted_price_usd": best['predicted_price_usd'],
+                "actual_price_usd": best['actual_price_usd'],
+                "percentage_error": best['percentage_error']
+            }
         }
         
         with open(METRICS_LOG_FILE, 'w') as f:
             json.dump(metrics_summary, f, indent=2)
             
-        return {"status": "success", "records_updated": updated_count, "metrics": metrics_summary}
+        return metrics_summary
+    return {}
+
+def backfill_all_history():
+    """
+    Backfills complete day-by-day predictions and actual prices for all 2025 and 2026 trading sessions.
+    """
+    ensure_logs_dir()
+    from model import extract_features_df, load_model_artifact
+    
+    print("Backfilling complete 2025 & 2026 daily prediction log...")
+    raw_df = yf.download("GC=F", start="2024-11-01", progress=False)
+    if isinstance(raw_df.columns, pd.MultiIndex):
+        raw_df.columns = raw_df.columns.get_level_values(0)
+    raw_df.index = pd.to_datetime(raw_df.index)
+    
+    artifact = load_model_artifact()
+    if not artifact:
+        return
         
-    return {"status": "success", "records_updated": updated_count}
+    model = artifact['model']
+    scaler = artifact['scaler']
+    feature_cols = artifact['feature_columns']
+    
+    feat_df = extract_features_df(raw_df)
+    feat_df = feat_df[feat_df.index >= '2025-01-01']
+    
+    usd_to_myr = 4.45
+    troy_oz_to_g = 31.1034768
+    
+    rows = []
+    for idx in range(len(feat_df) - 1):
+        target_dt = feat_df.index[idx+1].strftime('%Y-%m-%d')
+        f_row = feat_df.iloc[idx:idx+1][feature_cols]
+        if not f_row.isna().any().any():
+            x_sc = scaler.transform(f_row.values)
+            pred_ret = float(model.predict(x_sc)[0])
+            cur_usd = float(feat_df['Close'].iloc[idx])
+            act_next_usd = float(feat_df['Close'].iloc[idx+1])
+            pred_next_usd = cur_usd * (1.0 + pred_ret)
+            
+            err_usd = abs(act_next_usd - pred_next_usd)
+            pct_err = (err_usd / act_next_usd) * 100
+            
+            rows.append({
+                "logged_at": feat_df.index[idx].strftime('%Y-%m-%d %H:%M:%S'),
+                "target_date": target_dt,
+                "predicted_price_myr_g": round((pred_next_usd * usd_to_myr) / troy_oz_to_g, 2),
+                "predicted_price_usd": round(pred_next_usd, 2),
+                "actual_price_usd": round(act_next_usd, 2),
+                "actual_price_myr_g": round((act_next_usd * usd_to_myr) / troy_oz_to_g, 2),
+                "error_usd": round(err_usd, 2),
+                "percentage_error": round(pct_err, 2),
+                "model_name": "HistGradientBoosting"
+            })
+            
+    df = pd.DataFrame(rows)
+    df.to_csv(PREDICTIONS_LOG_FILE, index=False)
+    _recalculate_metrics(df)
+    print(f"Successfully backfilled {len(rows)} daily prediction logs.")
+    return df
 
 def get_prediction_logs():
-    """Returns all logged predictions and current summary statistics."""
+    """Returns all logged predictions and current summary statistics, auto-syncing if needed."""
     ensure_logs_dir()
+    if not os.path.exists(PREDICTIONS_LOG_FILE):
+        backfill_all_history()
+    else:
+        # Quick sync to ensure latest day is updated
+        try:
+            sync_actual_prices_and_update_metrics()
+        except Exception as e:
+            print(f"Auto-sync on get_prediction_logs failed: {e}")
+            
     logs = []
     if os.path.exists(PREDICTIONS_LOG_FILE):
         df = pd.read_csv(PREDICTIONS_LOG_FILE)
+        # Sort by target_date descending so newest is first
+        df = df.sort_values(by='target_date', ascending=False)
         logs = df.to_dict(orient='records')
         
     summary = {}
@@ -149,33 +236,6 @@ def get_prediction_logs():
     }
 
 if __name__ == "__main__":
-    print("Testing sync and metrics logger...")
-    # Import historical 2025 and 2026 logs if empty
-    ensure_logs_dir()
-    if not os.path.exists(PREDICTIONS_LOG_FILE):
-        # Prepopulate with 2025 and 2026 evaluation runs
-        eval_2025 = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "eval_results_2025.csv"))
-        rows = []
-        usd_to_myr = 4.45
-        troy_oz_to_g = 31.1034768
-        for _, r in eval_2025.iterrows():
-            pred_usd = float(r['predicted_next_close'])
-            act_usd = float(r['actual_next_close'])
-            err = float(r['absolute_error'])
-            pct = float(r['percentage_error'])
-            rows.append({
-                "logged_at": "2025-Benchmark",
-                "target_date": r['Date'],
-                "predicted_price_myr_g": round((pred_usd * usd_to_myr) / troy_oz_to_g, 2),
-                "predicted_price_usd": round(pred_usd, 2),
-                "actual_price_usd": round(act_usd, 2),
-                "actual_price_myr_g": round((act_usd * usd_to_myr) / troy_oz_to_g, 2),
-                "error_usd": round(err, 2),
-                "percentage_error": round(pct, 2),
-                "model_name": "HistGradientBoosting"
-            })
-        pd.DataFrame(rows).to_csv(PREDICTIONS_LOG_FILE, index=False)
-        print(f"Prepopulated {len(rows)} 2025 evaluation history logs.")
-        
-    res = sync_actual_prices_and_update_metrics()
-    print("Sync output:", res)
+    print("Testing backfill and sync...")
+    backfill_all_history()
+    print("Done!")

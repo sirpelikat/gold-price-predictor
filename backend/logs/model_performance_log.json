@@ -1,21 +1,21 @@
 {
-  "last_updated": "2026-08-16 22:40:50 UTC",
-  "total_predictions_logged": 261,
-  "total_evaluated_days": 253,
-  "overall_accuracy_percentage": 99.7,
-  "mean_absolute_error_usd": 10.81,
-  "mean_absolute_error_myr_g": 1.55,
-  "mape_percentage": 0.3,
+  "last_updated": "2026-08-22 07:35:55 UTC",
+  "total_predictions_logged": 767,
+  "total_evaluated_days": 403,
+  "overall_accuracy_percentage": 98.79,
+  "mean_absolute_error_usd": 49.0,
+  "mean_absolute_error_myr_g": 7.01,
+  "mape_percentage": 1.21,
   "worst_day": {
-    "target_date": "2025-10-22",
-    "predicted_price_usd": 4111.03,
-    "actual_price_usd": 4044.4,
-    "percentage_error": 1.65
+    "target_date": "2026-01-30",
+    "predicted_price_usd": 5257.49,
+    "actual_price_usd": 4713.9,
+    "percentage_error": 11.53
   },
   "best_day": {
-    "target_date": "2025-08-29",
-    "predicted_price_usd": 3473.6,
-    "actual_price_usd": 3473.7,
+    "target_date": "2025-06-18",
+    "predicted_price_usd": 3389.64,
+    "actual_price_usd": 3389.8,
     "percentage_error": 0.0
   }
 }

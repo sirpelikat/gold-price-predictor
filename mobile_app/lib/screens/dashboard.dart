@@ -1022,9 +1022,21 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   // ==========================================
   // TAB 3: PREDICTION LOGS & AUDIT TRAIL
   // ==========================================
+  String logFilter = 'all'; // 'all', 'verified', 'pending'
+
   Widget _buildLogsTab() {
-    final List logs = (logsData?['logs'] as List?) ?? [];
+    final List allLogs = (logsData?['logs'] as List?) ?? [];
     final Map<String, dynamic> summary = (logsData?['summary'] as Map<String, dynamic>?) ?? {};
+
+    final List filteredLogs = allLogs.where((item) {
+      final bool hasActual = item['actual_price_usd'] != null;
+      if (logFilter == 'verified') return hasActual;
+      if (logFilter == 'pending') return !hasActual;
+      return true;
+    }).toList();
+
+    final int verifiedCount = allLogs.where((item) => item['actual_price_usd'] != null).length;
+    final int pendingCount = allLogs.length - verifiedCount;
 
     return RefreshIndicator(
       color: Colors.amber,
@@ -1039,10 +1051,12 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
             const SizedBox(height: 16),
             _buildLogsSummaryHeader(summary),
             const SizedBox(height: 20),
+            
+            // Header & Sync Button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Logged Predictions (${logs.length})', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                const Text('Daily Prediction & Close Log', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                 TextButton.icon(
                   icon: isSyncing 
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
@@ -1053,25 +1067,61 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
               ],
             ),
             const SizedBox(height: 10),
-            if (logs.isEmpty)
+
+            // Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildLogFilterChip('All (${allLogs.length})', 'all'),
+                  const SizedBox(width: 8),
+                  _buildLogFilterChip('Verified ($verifiedCount)', 'verified'),
+                  const SizedBox(width: 8),
+                  _buildLogFilterChip('Pending ($pendingCount)', 'pending'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            if (filteredLogs.isEmpty)
               Container(
                 padding: const EdgeInsets.all(30),
                 alignment: Alignment.center,
-                child: const Text('No prediction logs recorded yet.', style: TextStyle(color: Colors.grey)),
+                child: const Text('No prediction logs found for this filter.', style: TextStyle(color: Colors.grey)),
               )
             else
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: logs.length > 50 ? 50 : logs.length,
+                itemCount: filteredLogs.length,
                 itemBuilder: (context, index) {
-                  final row = logs[logs.length - 1 - index];
+                  final row = filteredLogs[index];
                   return _buildLogItem(row);
                 },
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLogFilterChip(String label, String value) {
+    final bool isSelected = logFilter == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) setState(() => logFilter = value);
+      },
+      selectedColor: Colors.amber,
+      backgroundColor: const Color(0xFF22222A),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.black : Colors.white70,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 11,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 
@@ -1167,6 +1217,8 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     final double overallAcc = (summary['overall_accuracy_percentage'] as num?)?.toDouble() ?? 99.0;
     final int totalDays = (summary['total_evaluated_days'] as num?)?.toInt() ?? 0;
     final double mape = (summary['mape_percentage'] as num?)?.toDouble() ?? 1.0;
+    final double maeUsd = (summary['mean_absolute_error_usd'] as num?)?.toDouble() ?? 10.76;
+    final double maeMyr = (summary['mean_absolute_error_myr_g'] as num?)?.toDouble() ?? 1.54;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1188,7 +1240,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
                   color: Colors.amber.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('Tracked Days: $totalDays', style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text('Evaluated Days: $totalDays', style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1201,7 +1253,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
                   children: [
                     const Text('Running Accuracy', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 2),
-                    Text('${overallAcc.toStringAsFixed(2)}%', style: const TextStyle(color: Colors.greenAccent, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text('${overallAcc.toStringAsFixed(2)}%', style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -1209,9 +1261,22 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Average Error %', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const Text('Mean Error %', style: TextStyle(color: Colors.grey, fontSize: 11)),
                     const SizedBox(height: 2),
-                    Text('${mape.toStringAsFixed(2)}%', style: const TextStyle(color: Colors.amber, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text('${mape.toStringAsFixed(2)}%', style: const TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Mean Variance', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    Text(
+                      isUSD ? '\$${maeUsd.toStringAsFixed(2)}/oz' : 'RM ${maeMyr.toStringAsFixed(2)}/g',
+                      style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -1228,15 +1293,16 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     final double? actPriceMyr = (row['actual_price_myr_g'] as num?)?.toDouble();
     final double? predPriceUsd = (row['predicted_price_usd'] as num?)?.toDouble();
     final double? actPriceUsd = (row['actual_price_usd'] as num?)?.toDouble();
+    final double? errUsd = (row['error_usd'] as num?)?.toDouble();
     final double? pctErr = (row['percentage_error'] as num?)?.toDouble();
 
-    final String predText = isUSD
-        ? (predPriceUsd != null ? '\$${predPriceUsd.toStringAsFixed(2)}' : (predPriceMyr != null ? '\$${(predPriceMyr * 31.1034768 / 4.45).toStringAsFixed(2)}' : '---'))
-        : (predPriceMyr != null ? 'RM ${predPriceMyr.toStringAsFixed(2)}' : '---');
-
-    final String? actText = isUSD
-        ? (actPriceUsd != null ? '\$${actPriceUsd.toStringAsFixed(2)}' : (actPriceMyr != null ? '\$${(actPriceMyr * 31.1034768 / 4.45).toStringAsFixed(2)}' : null))
-        : (actPriceMyr != null ? 'RM ${actPriceMyr.toStringAsFixed(2)}' : null);
+    // Format weekday name
+    String formattedDateHeader = date;
+    try {
+      final dt = DateTime.parse(date);
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      formattedDateHeader = '$date (${weekdays[dt.weekday - 1]})';
+    } catch (_) {}
 
     Color statusColor = Colors.cyanAccent;
     String statusText = 'Pending Close';
@@ -1263,10 +1329,10 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           statusText = 'Closes Today';
           statusColor = Colors.cyanAccent;
         } else if (diffDays == 1) {
-          statusText = 'Closes in 1 day';
+          statusText = 'Closes in 1d';
           statusColor = Colors.lightBlueAccent;
         } else {
-          statusText = 'Closes in $diffDays days';
+          statusText = 'Closes in ${diffDays}d';
           statusColor = Colors.lightBlueAccent;
         }
       } catch (e) {
@@ -1275,59 +1341,137 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF22222A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Top Row: Date & Status Badge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(date, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 4),
               Row(
                 children: [
+                  const Icon(Icons.calendar_today, size: 13, color: Colors.grey),
+                  const SizedBox(width: 6),
                   Text(
-                    'Pred: $predText',
-                    style: const TextStyle(color: Colors.amber, fontSize: 11),
+                    formattedDateHeader,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                  if (actText != null) ...[
-                    const SizedBox(width: 8),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pctErr == null) ...[
+                      Icon(Icons.hourglass_bottom, color: statusColor, size: 11),
+                      const SizedBox(width: 4),
+                    ],
                     Text(
-                      'Act: $actText',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                      statusText,
+                      style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
-                ],
+                ),
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: statusColor.withValues(alpha: 0.4)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (pctErr == null) ...[
-                  Icon(Icons.hourglass_bottom, color: statusColor, size: 12),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  statusText,
-                  style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: Colors.white10),
+          const SizedBox(height: 10),
+
+          // Price Details Grid
+          Row(
+            children: [
+              // Predicted Price Column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Predicted Price', style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(
+                      isUSD 
+                          ? (predPriceUsd != null ? '\$${predPriceUsd.toStringAsFixed(2)} / oz' : '---')
+                          : (predPriceMyr != null ? 'RM ${predPriceMyr.toStringAsFixed(2)} / g' : '---'),
+                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      isUSD
+                          ? (predPriceMyr != null ? '≈ RM ${predPriceMyr.toStringAsFixed(2)} / g' : '')
+                          : (predPriceUsd != null ? '≈ \$${predPriceUsd.toStringAsFixed(2)} / oz' : ''),
+                      style: const TextStyle(color: Colors.white54, fontSize: 10),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              
+              // Actual Price Column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Actual Market Close', style: TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 3),
+                    Text(
+                      actPriceUsd != null
+                          ? (isUSD ? '\$${actPriceUsd.toStringAsFixed(2)} / oz' : 'RM ${actPriceMyr?.toStringAsFixed(2)} / g')
+                          : 'Awaiting Close',
+                      style: TextStyle(
+                        color: actPriceUsd != null ? Colors.white : Colors.white38,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (actPriceUsd != null)
+                      Text(
+                        isUSD
+                            ? '≈ RM ${actPriceMyr?.toStringAsFixed(2)} / g'
+                            : '≈ \$${actPriceUsd.toStringAsFixed(2)} / oz',
+                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
+
+          // Error Variance Footer (if evaluated)
+          if (errUsd != null && pctErr != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    isUSD ? 'Variance: \$${errUsd.toStringAsFixed(2)} / oz' : 'Variance: RM ${((errUsd * 4.45) / 31.1034768).toStringAsFixed(2)} / g',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  Text(
+                    'Accuracy: ${(100 - pctErr).toStringAsFixed(2)}%',
+                    style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

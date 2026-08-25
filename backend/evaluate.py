@@ -5,7 +5,11 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from train import ALL_FEATURE_COLUMNS
 
-def evaluate_model_2025(test_data_path: str = None, model_path: str = None, output_csv_path: str = None):
+def evaluate_model_2025(
+    test_data_path: str | None = None,
+    model_path: str | None = None,
+    output_csv_path: str | None = None,
+):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if test_data_path is None:
         test_data_path = os.path.join(script_dir, "data", "gold_test_2025.csv")
@@ -29,39 +33,39 @@ def evaluate_model_2025(test_data_path: str = None, model_path: str = None, outp
     if "engine" in artifact:
         engine = artifact["engine"]
         batch_res = engine.predict_batch(eval_df)
-        pred_usd = batch_res["predicted_gold_usd"]
-        pred_myr_g = batch_res["predicted_myr_g_consensus"]
-        pred_fx = batch_res["predicted_usd_myr"]
+        pred_usd = np.asarray(batch_res["predicted_gold_usd"], dtype=np.float64)
+        pred_myr_g = np.asarray(batch_res["predicted_myr_g_consensus"], dtype=np.float64)
+        pred_fx = np.asarray(batch_res["predicted_usd_myr"], dtype=np.float64)
     else:
         model = artifact["model"]
         scaler = artifact["scaler"]
         X = eval_df[artifact["feature_columns"]].values
         pred_returns = model.predict(scaler.transform(X))
-        pred_usd = eval_df['gold_usd'].values * (1 + pred_returns)
-        pred_myr_g = (pred_usd * eval_df['usd_myr'].values) / 31.1034768
-        pred_fx = eval_df['usd_myr'].values
+        pred_usd = np.asarray(eval_df['gold_usd'].to_numpy(dtype=np.float64) * (1 + pred_returns), dtype=np.float64)
+        pred_myr_g = np.asarray((pred_usd * eval_df['usd_myr'].to_numpy(dtype=np.float64)) / 31.1034768, dtype=np.float64)
+        pred_fx = np.asarray(eval_df['usd_myr'].to_numpy(dtype=np.float64), dtype=np.float64)
         
-    actual_usd = eval_df['target_gold_next_close'].values
-    actual_myr_g = eval_df['target_gold_myr_next_close'].values
-    cur_usd = eval_df['gold_usd'].values
-    cur_myr_g = eval_df['gold_myr_g'].values
+    actual_usd = np.asarray(eval_df['target_gold_next_close'].to_numpy(dtype=np.float64), dtype=np.float64)
+    actual_myr_g = np.asarray(eval_df['target_gold_myr_next_close'].to_numpy(dtype=np.float64), dtype=np.float64)
+    cur_usd = np.asarray(eval_df['gold_usd'].to_numpy(dtype=np.float64), dtype=np.float64)
+    cur_myr_g = np.asarray(eval_df['gold_myr_g'].to_numpy(dtype=np.float64), dtype=np.float64)
     
     # Metrics for USD
-    mae_usd = mean_absolute_error(actual_usd, pred_usd)
-    rmse_usd = np.sqrt(mean_squared_error(actual_usd, pred_usd))
-    mape_usd = np.mean(np.abs((actual_usd - pred_usd) / actual_usd)) * 100
-    r2_usd = r2_score(actual_usd, pred_usd)
+    mae_usd = float(mean_absolute_error(actual_usd, pred_usd))
+    rmse_usd = float(np.sqrt(mean_squared_error(actual_usd, pred_usd)))
+    mape_usd = float(np.mean(np.abs((actual_usd - pred_usd) / actual_usd)) * 100)
+    r2_usd = float(r2_score(actual_usd, pred_usd))
     
     # Metrics for MYR / g
-    mae_myr_g = mean_absolute_error(actual_myr_g, pred_myr_g)
-    rmse_myr_g = np.sqrt(mean_squared_error(actual_myr_g, pred_myr_g))
-    mape_myr_g = np.mean(np.abs((actual_myr_g - pred_myr_g) / actual_myr_g)) * 100
-    r2_myr_g = r2_score(actual_myr_g, pred_myr_g)
+    mae_myr_g = float(mean_absolute_error(actual_myr_g, pred_myr_g))
+    rmse_myr_g = float(np.sqrt(mean_squared_error(actual_myr_g, pred_myr_g)))
+    mape_myr_g = float(np.mean(np.abs((actual_myr_g - pred_myr_g) / actual_myr_g)) * 100)
+    r2_myr_g = float(r2_score(actual_myr_g, pred_myr_g))
     
     # Directional Accuracy (MYR/g)
     actual_dir_myr = np.sign(actual_myr_g - cur_myr_g)
     pred_dir_myr = np.sign(pred_myr_g - cur_myr_g)
-    dir_acc_myr = np.mean(actual_dir_myr == pred_dir_myr) * 100
+    dir_acc_myr = float(np.mean(actual_dir_myr == pred_dir_myr) * 100)
     
     print("\n" + "=" * 60)
     print(" [REPORT] 2025 MALAYSIAN MULTI-TASK EVALUATION RESULTS ")

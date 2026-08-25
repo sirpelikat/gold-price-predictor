@@ -1,10 +1,10 @@
 {
-  "last_updated": "2026-08-22 07:35:55 UTC",
+  "last_updated": "2026-08-22 09:13:01 UTC",
   "total_predictions_logged": 767,
   "total_evaluated_days": 403,
   "overall_accuracy_percentage": 98.79,
   "mean_absolute_error_usd": 49.0,
-  "mean_absolute_error_myr_g": 7.01,
+  "mean_absolute_error_myr_g": 6.36,
   "mape_percentage": 1.21,
   "worst_day": {
     "target_date": "2026-01-30",

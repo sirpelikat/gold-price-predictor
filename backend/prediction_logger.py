@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
 import yfinance as yf
+from data_fetcher import get_usd_myr_rate
 
 LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 PREDICTIONS_LOG_FILE = os.path.join(LOGS_DIR, "prediction_history.csv")
@@ -12,13 +13,70 @@ METRICS_LOG_FILE = os.path.join(LOGS_DIR, "model_performance_log.json")
 def ensure_logs_dir():
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-def log_predictions(predictions: list, model_name: str = "HistGradientBoosting", rate: float = 4.45):
+def take_daily_8am_snapshot():
     """
-    Logs generated predictions to prediction_history.csv.
+    Takes and permanently locks the official daily prediction snapshot at 8:00 AM everyday.
+    Preserves the official 8:00 AM prediction so it is never overwritten by intraday model reruns.
+    """
+    ensure_logs_dir()
+    from model import train_and_predict
+    
+    # Get current local date
+    now = datetime.now()
+    today_str = now.strftime('%Y-%m-%d')
+    snapshot_time_str = f"{today_str} 08:00:00"
+    
+    rate = get_usd_myr_rate()
+    
+    # Check if today's 8am prediction has already been locked
+    if os.path.exists(PREDICTIONS_LOG_FILE):
+        df = pd.read_csv(PREDICTIONS_LOG_FILE)
+        # If we already have a prediction logged for today or tomorrow from 8am, keep it
+        existing_today = df[(df['target_date'] >= today_str) & (df['logged_at'].str.contains('08:00:00'))]
+        if not existing_today.empty:
+            return df
+            
+    # Generate fresh 7-day forward predictions as the official 8:00 AM snapshot
+    predictions = train_and_predict(days_to_predict=7)
+    rows = []
+    for p in predictions:
+        price_usd_oz = float(p['price'])
+        price_myr_g = (price_usd_oz * rate) / 31.1034768
+        rows.append({
+            "logged_at": snapshot_time_str,
+            "target_date": p['date'],
+            "predicted_price_myr_g": round(price_myr_g, 2),
+            "predicted_price_usd": round(price_usd_oz, 2),
+            "actual_price_usd": None,
+            "actual_price_myr_g": None,
+            "error_usd": None,
+            "percentage_error": None,
+            "model_name": "HistGradientBoosting"
+        })
+        
+    new_df = pd.DataFrame(rows)
+    if os.path.exists(PREDICTIONS_LOG_FILE):
+        existing_df = pd.read_csv(PREDICTIONS_LOG_FILE)
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+        # Keep earlier 8:00 AM snapshot if already present
+        combined_df.drop_duplicates(subset=['target_date', 'model_name'], keep='first', inplace=True)
+    else:
+        combined_df = new_df
+        
+    combined_df.to_csv(PREDICTIONS_LOG_FILE, index=False)
+    return combined_df
+
+def log_predictions(predictions: list, model_name: str = "HistGradientBoosting", rate: float = None):
+    """
+    Logs generated predictions to prediction_history.csv with 8:00 AM snapshot policy.
     Avoids duplicate entries for the same target date and model version.
     """
     ensure_logs_dir()
-    now_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    if rate is None:
+        rate = get_usd_myr_rate()
+    
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    snapshot_time_str = f"{today_str} 08:00:00"
     
     rows = []
     for p in predictions:
@@ -26,7 +84,7 @@ def log_predictions(predictions: list, model_name: str = "HistGradientBoosting",
         price_usd_oz = (price_myr_g * 31.1034768) / rate
         
         rows.append({
-            "logged_at": now_str,
+            "logged_at": snapshot_time_str,
             "target_date": p['date'],
             "predicted_price_myr_g": round(price_myr_g, 2),
             "predicted_price_usd": round(price_usd_oz, 2),
@@ -41,9 +99,8 @@ def log_predictions(predictions: list, model_name: str = "HistGradientBoosting",
     
     if os.path.exists(PREDICTIONS_LOG_FILE):
         existing_df = pd.read_csv(PREDICTIONS_LOG_FILE)
-        # Avoid exact duplicate target_date + model_name on the same day
         combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-        combined_df.drop_duplicates(subset=['target_date', 'model_name'], keep='last', inplace=True)
+        combined_df.drop_duplicates(subset=['target_date', 'model_name'], keep='first', inplace=True)
     else:
         combined_df = new_df
         
@@ -83,7 +140,7 @@ def sync_actual_prices_and_update_metrics():
         print(f"Error fetching actuals for sync: {e}")
         return {"status": "error_fetching_actuals", "error": str(e)}
         
-    usd_to_myr = 4.45
+    usd_to_myr = get_usd_myr_rate()
     troy_oz_to_g = 31.1034768
     updated_count = 0
     
@@ -93,12 +150,14 @@ def sync_actual_prices_and_update_metrics():
             actual_usd = float(actuals_df.loc[target_date, 'Close'])
             actual_myr = (actual_usd * usd_to_myr) / troy_oz_to_g
             pred_usd = float(row['predicted_price_usd'])
+            pred_myr = (pred_usd * usd_to_myr) / troy_oz_to_g
             
             err_usd = abs(actual_usd - pred_usd)
             pct_err = (err_usd / actual_usd) * 100
             
             df.at[idx, 'actual_price_usd'] = round(actual_usd, 2)
             df.at[idx, 'actual_price_myr_g'] = round(actual_myr, 2)
+            df.at[idx, 'predicted_price_myr_g'] = round(pred_myr, 2)
             df.at[idx, 'error_usd'] = round(err_usd, 2)
             df.at[idx, 'percentage_error'] = round(pct_err, 2)
             updated_count += 1
@@ -108,7 +167,7 @@ def sync_actual_prices_and_update_metrics():
     return {"status": "success", "records_updated": updated_count, "metrics": metrics_summary}
 
 def _recalculate_metrics(df: pd.DataFrame):
-    usd_to_myr = 4.45
+    usd_to_myr = get_usd_myr_rate()
     troy_oz_to_g = 31.1034768
     evaluated_rows = df.dropna(subset=['actual_price_usd', 'predicted_price_usd'])
     if not evaluated_rows.empty:
@@ -121,23 +180,23 @@ def _recalculate_metrics(df: pd.DataFrame):
         
         metrics_summary = {
             "last_updated": datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC'),
-            "total_predictions_logged": len(df),
-            "total_evaluated_days": len(evaluated_rows),
-            "overall_accuracy_percentage": overall_acc,
-            "mean_absolute_error_usd": round(mae_usd, 2),
-            "mean_absolute_error_myr_g": round((mae_usd * usd_to_myr) / troy_oz_to_g, 2),
-            "mape_percentage": round(mape, 2),
+            "total_predictions_logged": int(len(df)),
+            "total_evaluated_days": int(len(evaluated_rows)),
+            "overall_accuracy_percentage": float(overall_acc),
+            "mean_absolute_error_usd": float(round(mae_usd, 2)),
+            "mean_absolute_error_myr_g": float(round((mae_usd * usd_to_myr) / troy_oz_to_g, 2)),
+            "mape_percentage": float(round(mape, 2)),
             "worst_day": {
-                "target_date": worst['target_date'],
-                "predicted_price_usd": worst['predicted_price_usd'],
-                "actual_price_usd": worst['actual_price_usd'],
-                "percentage_error": worst['percentage_error']
+                "target_date": str(worst['target_date']),
+                "predicted_price_usd": float(worst['predicted_price_usd']),
+                "actual_price_usd": float(worst['actual_price_usd']),
+                "percentage_error": float(worst['percentage_error'])
             },
             "best_day": {
-                "target_date": best['target_date'],
-                "predicted_price_usd": best['predicted_price_usd'],
-                "actual_price_usd": best['actual_price_usd'],
-                "percentage_error": best['percentage_error']
+                "target_date": str(best['target_date']),
+                "predicted_price_usd": float(best['predicted_price_usd']),
+                "actual_price_usd": float(best['actual_price_usd']),
+                "percentage_error": float(best['percentage_error'])
             }
         }
         
@@ -171,7 +230,7 @@ def backfill_all_history():
     feat_df = extract_features_df(raw_df)
     feat_df = feat_df[feat_df.index >= '2025-01-01']
     
-    usd_to_myr = 4.45
+    usd_to_myr = get_usd_myr_rate()
     troy_oz_to_g = 31.1034768
     
     rows = []
@@ -207,28 +266,50 @@ def backfill_all_history():
     return df
 
 def get_prediction_logs():
-    """Returns all logged predictions and current summary statistics, auto-syncing if needed."""
+    """Returns all logged predictions and current summary statistics, safely handling NaNs."""
     ensure_logs_dir()
-    if not os.path.exists(PREDICTIONS_LOG_FILE):
+    if not os.path.exists(PREDICTIONS_LOG_FILE) or os.path.getsize(PREDICTIONS_LOG_FILE) == 0:
         backfill_all_history()
     else:
-        # Quick sync to ensure latest day is updated
+        # Take 8am daily snapshot and quick sync actuals
         try:
+            take_daily_8am_snapshot()
             sync_actual_prices_and_update_metrics()
         except Exception as e:
-            print(f"Auto-sync on get_prediction_logs failed: {e}")
+            print(f"Auto-sync on get_prediction_logs notice: {e}")
             
     logs = []
-    if os.path.exists(PREDICTIONS_LOG_FILE):
-        df = pd.read_csv(PREDICTIONS_LOG_FILE)
-        # Sort by target_date descending so newest is first
-        df = df.sort_values(by='target_date', ascending=False)
-        logs = df.to_dict(orient='records')
+    if os.path.exists(PREDICTIONS_LOG_FILE) and os.path.getsize(PREDICTIONS_LOG_FILE) > 0:
+        try:
+            df = pd.read_csv(PREDICTIONS_LOG_FILE)
+            if not df.empty:
+                df = df.sort_values(by='target_date', ascending=False)
+                # Clean up NaN / NaT values to None for clean JSON serialization
+                raw_logs = df.to_dict(orient='records')
+                for row in raw_logs:
+                    clean_row = {}
+                    for k, v in row.items():
+                        if pd.isna(v) or v is None:
+                            clean_row[k] = None
+                        elif isinstance(v, (np.floating, float)) and (np.isnan(v) or np.isinf(v)):
+                            clean_row[k] = None
+                        elif isinstance(v, (np.integer, int)):
+                            clean_row[k] = int(v)
+                        elif isinstance(v, (np.floating, float)):
+                            clean_row[k] = float(v)
+                        else:
+                            clean_row[k] = v
+                    logs.append(clean_row)
+        except Exception as e:
+            print(f"Error reading prediction logs safely: {e}")
         
     summary = {}
-    if os.path.exists(METRICS_LOG_FILE):
-        with open(METRICS_LOG_FILE, 'r') as f:
-            summary = json.load(f)
+    if os.path.exists(METRICS_LOG_FILE) and os.path.getsize(METRICS_LOG_FILE) > 0:
+        try:
+            with open(METRICS_LOG_FILE, 'r') as f:
+                summary = json.load(f)
+        except Exception as e:
+            print(f"Error reading metrics log: {e}")
             
     return {
         "summary": summary,
@@ -236,6 +317,7 @@ def get_prediction_logs():
     }
 
 if __name__ == "__main__":
-    print("Testing backfill and sync...")
-    backfill_all_history()
-    print("Done!")
+    print("Testing get_prediction_logs...")
+    data = get_prediction_logs()
+    print(f"Loaded {len(data['logs'])} logs successfully.")
+

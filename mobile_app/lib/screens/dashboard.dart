@@ -17,6 +17,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   List<Map<String, dynamic>> predictionData = [];
   Map<String, dynamic>? modelMetrics;
   Map<String, dynamic>? logsData;
+  Map<String, dynamic>? malaysiaMacro;
   
   bool isUSD = false;       // false = MYR/g, true = USD/oz
   int forecastDays = 7;     // 7 = 7 Days, 30 = Monthly, 365 = Annual
@@ -49,6 +50,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
       ApiService.getPredictionData(days: forecastDays),
       ApiService.getModelMetrics(),
       ApiService.getPredictionLogs(),
+      ApiService.getMalaysiaMacroData(),
     ]);
 
     if (mounted) {
@@ -58,6 +60,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
         predictionData = (results[2] as List<Map<String, dynamic>>?) ?? [];
         modelMetrics = results[3] as Map<String, dynamic>?;
         logsData = results[4] as Map<String, dynamic>?;
+        malaysiaMacro = results[5] as Map<String, dynamic>?;
         isLoading = false;
       });
     }
@@ -262,7 +265,11 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
               const SizedBox(height: 16),
             ],
             _buildCurrentPriceCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
+            _buildKijangEmasRetailCard(),
+            const SizedBox(height: 14),
+            _buildMalaysiaMacroFactorsCard(),
+            const SizedBox(height: 14),
             _buildAccuracyBadgeHeader(),
             const SizedBox(height: 24),
             
@@ -488,6 +495,171 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildKijangEmasRetailCard() {
+    final kijang = currentPriceData?['kijang_emas'] as Map<String, dynamic>?;
+    if (kijang == null) return const SizedBox.shrink();
+
+    final double sell1oz = (kijang['one_oz_selling_myr'] as num?)?.toDouble() ?? 19387.0;
+    final double buy1oz = (kijang['one_oz_buying_myr'] as num?)?.toDouble() ?? 18624.0;
+    final double gramRetail = (kijang['one_gram_retail_myr'] as num?)?.toDouble() ?? (sell1oz / 31.1034768);
+    final double spreadPct = (kijang['retail_spread_percent'] as num?)?.toDouble() ?? 4.10;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.monetization_on, color: Colors.amber, size: 14),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'BNM KIJANG EMAS (PHYSICAL)',
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  '+${spreadPct.toStringAsFixed(1)}% Spread',
+                  style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildQuickStat('Retail Buy (1 oz)', 'RM ${sell1oz.toStringAsFixed(0)}', Colors.white),
+              Container(width: 1, height: 30, color: Colors.white12),
+              _buildQuickStat('Retail Sell (1 oz)', 'RM ${buy1oz.toStringAsFixed(0)}', Colors.white70),
+              Container(width: 1, height: 30, color: Colors.white12),
+              _buildQuickStat('Physical / Gram', 'RM ${gramRetail.toStringAsFixed(2)}', Colors.amberAccent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMalaysiaMacroFactorsCard() {
+    final double brent = (malaysiaMacro?['brent_crude_usd'] as num?)?.toDouble() ?? 92.17;
+    final double klci = (malaysiaMacro?['fbm_klci_points'] as num?)?.toDouble() ?? 1736.33;
+    final double opr = (malaysiaMacro?['bnm_opr_percent'] as num?)?.toDouble() ?? 2.75;
+    final bool isFestive = malaysiaMacro?['festive_season_active'] == true;
+    final String festivalName = malaysiaMacro?['active_festival_name'] ?? 'Normal Demand';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF22222A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.hub, color: Colors.lightBlueAccent, size: 15),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'MALAYSIAN MACRO DRIVERS',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isFestive) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.purpleAccent.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    festivalName,
+                    style: const TextStyle(color: Colors.purpleAccent, fontSize: 9, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildMacroChip('Brent Crude', '\$${brent.toStringAsFixed(2)}', 'Oil → MYR Strength', Colors.orangeAccent),
+              _buildMacroChip('FBM KLCI', klci.toStringAsFixed(1), 'Local Sentiment', Colors.lightGreenAccent),
+              _buildMacroChip('BNM OPR', '${opr.toStringAsFixed(2)}%', 'Bank Negara Rate', Colors.cyanAccent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMacroChip(String label, String value, String desc, Color accent) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(color: accent, fontSize: 13, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 1),
+        Text(desc, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+      ],
     );
   }
 
@@ -983,6 +1155,8 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildModelInfoCard(),
+          const SizedBox(height: 16),
+          _buildMultiTaskArchitectureCard(),
           const SizedBox(height: 20),
           const Text('2025 Out-of-Sample Test Benchmark', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
@@ -995,7 +1169,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   }
 
   Widget _buildModelInfoCard() {
-    final String modelName = modelMetrics?['model_name'] ?? 'HistGradientBoostingRegressor';
+    final String modelName = modelMetrics?['model_name'] ?? 'MalaysianMultiTaskMTL';
     final String trainPeriod = modelMetrics?['training_period'] ?? '2010-01-01 to 2024-12-31';
 
     return Container(
@@ -1021,7 +1195,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           ),
           const SizedBox(height: 10),
           const Text(
-            'Trained on 15 years of daily gold prices with recursive multi-step forecasting, technical indicators, and volatility modeling.',
+            'Specialized Malaysian Gold Intelligence Model: Evaluates Global Gold (USD/oz) vs Ringgit FX (USD/MYR) with local macro factors and BNM Kijang Emas retail spreads.',
             style: TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -1029,11 +1203,71 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
             children: [
               const Icon(Icons.calendar_month, color: Colors.grey, size: 16),
               const SizedBox(width: 6),
-              Text('Training Period: $trainPeriod (3,771 days)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text('Training Period: $trainPeriod (3,864 days)', style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMultiTaskArchitectureCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.schema, color: Colors.cyanAccent, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'MULTI-TASK DUAL-ENGINE ARCHITECTURE',
+                style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildEngineSubRow('Model A: Global Gold Engine', 'Predicts XAU/USD using 10Y Yields, DXY Dollar Index, and Global Volatility.', Colors.amber),
+          const Divider(color: Colors.white10, height: 16),
+          _buildEngineSubRow('Model B: Currency FX Engine', 'Predicts USD/MYR using Brent Crude Oil, FBM KLCI, and BNM OPR.', Colors.lightGreenAccent),
+          const Divider(color: Colors.white10, height: 16),
+          _buildEngineSubRow('Model C: Localized MYR/g Engine', 'Features Malaysian Seasonality (Hari Raya, CNY, Deepavali) + Retail Spreads.', Colors.purpleAccent),
+          const Divider(color: Colors.white10, height: 16),
+          _buildEngineSubRow('Ensemble Combiner', 'Blends Model A × Model B with Model C (60:40) to eliminate currency shock error.', Colors.cyanAccent),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEngineSubRow(String title, String desc, Color dotColor) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(color: dotColor, fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text(desc, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

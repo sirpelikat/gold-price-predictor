@@ -1,0 +1,40 @@
+{
+  "kijang_emas_latest": {
+    "cached_date": "2026-08-25",
+    "data": {
+      "effective_date": "2026-08-24",
+      "one_oz": {
+        "buying": 19074,
+        "selling": 19849
+      },
+      "half_oz": {
+        "buying": 9537,
+        "selling": 10112
+      },
+      "quarter_oz": {
+        "buying": 4768,
+        "selling": 5149
+      }
+    }
+  },
+  "opr_history": [
+    {
+      "year": 2026,
+      "date": "2026-05-07",
+      "change_in_opr": 0,
+      "new_opr_level": 2.75
+    },
+    {
+      "year": 2026,
+      "date": "2026-03-05",
+      "change_in_opr": 0,
+      "new_opr_level": 2.75
+    },
+    {
+      "year": 2026,
+      "date": "2026-01-22",
+      "change_in_opr": 0,
+      "new_opr_level": 2.75
+    }
+  ]
+}

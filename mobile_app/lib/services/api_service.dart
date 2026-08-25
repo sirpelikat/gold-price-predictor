@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const Duration timeoutDuration = Duration(seconds: 6);
+  static const Duration timeoutDuration = Duration(seconds: 15);
 
   static String get baseUrl {
     if (kIsWeb) {
@@ -97,5 +97,17 @@ class ApiService {
       debugPrint('Error syncing prediction logs: $e');
       return false;
     }
+  }
+
+  static Future<Map<String, dynamic>?> getMalaysiaMacroData() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/malaysia-macro')).timeout(timeoutDuration);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(json.decode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Error fetching Malaysia macro data: $e');
+    }
+    return null;
   }
 }

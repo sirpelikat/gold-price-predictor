@@ -1,20 +1,8 @@
 import os
 import joblib
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import Ridge
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-FEATURE_COLUMNS = [
-    'return_1d', 'return_5d', 'return_10d',
-    'ratio_sma_7', 'ratio_sma_14', 'ratio_sma_30', 'ratio_sma_50',
-    'macd', 'macd_signal', 'macd_hist',
-    'volatility_14', 'volatility_30',
-    'rsi_14',
-    'day_of_week', 'month', 'quarter'
-]
+from sklearn.metrics import mean_absolute_error
+from engine import MalaysianMultiTaskGoldEngine, ALL_FEATURE_COLUMNS
 
 def train_model(data_path: str = None, output_model_path: str = None):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,60 +11,49 @@ def train_model(data_path: str = None, output_model_path: str = None):
     if output_model_path is None:
         output_model_path = os.path.join(script_dir, "gold_model.joblib")
         
-    print(f"Loading training data from: {data_path}")
+    print(f"Loading Malaysian Market Training Data: {data_path}")
     df = pd.read_csv(data_path)
     
-    # Ensure all required features are present and non-null
-    df = df.dropna(subset=FEATURE_COLUMNS + ['target_next_return', 'Close', 'target_next_close']).copy()
+    clean_cols = ALL_FEATURE_COLUMNS + [
+        'target_gold_next_return', 'target_gold_next_close',
+        'target_myr_next_return', 'target_myr_next_close',
+        'target_gold_myr_next_return', 'target_gold_myr_next_close',
+        'gold_usd', 'usd_myr', 'gold_myr_g'
+    ]
+    df = df.dropna(subset=clean_cols).copy()
     
-    X = df[FEATURE_COLUMNS].values
-    y_return = df['target_next_return'].values
-    y_close = df['target_next_close'].values
-    current_close = df['Close'].values
+    print(f"Training MTL Engine on {len(df)} historical trading days...")
+    mtl_engine = MalaysianMultiTaskGoldEngine()
+    mtl_engine.fit(df)
     
-    print(f"Training dataset size: {len(X)} records with {len(FEATURE_COLUMNS)} features.")
-    
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Train candidate models on return forecasting
-    models = {
-        "HistGradientBoosting": HistGradientBoostingRegressor(max_iter=200, max_leaf_nodes=31, learning_rate=0.03, random_state=42),
-        "RandomForest": RandomForestRegressor(n_estimators=150, max_depth=8, min_samples_leaf=4, random_state=42, n_jobs=-1),
-        "Ridge": Ridge(alpha=10.0, random_state=42)
-    }
-    
-    best_model_name = None
-    best_mae = float('inf')
-    best_model = None
-    
-    for name, model in models.items():
-        model.fit(X_scaled, y_return)
-        pred_returns = model.predict(X_scaled)
-        pred_close = current_close * (1 + pred_returns)
+    # Vectorized in-sample evaluation
+    batch_res = mtl_engine.predict_batch(df)
+    preds_usd = batch_res['predicted_gold_usd']
+    preds_myr_g = batch_res['predicted_myr_g_consensus']
         
-        mae = mean_absolute_error(y_close, pred_close)
-        rmse = np.sqrt(mean_squared_error(y_close, pred_close))
-        r2 = r2_score(y_close, pred_close)
-        
-        print(f"[{name}] Train MAE: ${mae:.2f}, RMSE: ${rmse:.2f}, R2: {r2:.4f}")
-        
-        if mae < best_mae:
-            best_mae = mae
-            best_model_name = name
-            best_model = model
-            
-    print(f"\nSelected best model: {best_model_name} (MAE: ${best_mae:.2f})")
+    act_usd = df['target_gold_next_close'].values
+    act_myr_g = df['target_gold_myr_next_close'].values
     
-    # Bundle model artifact with scaler and metadata
+    mae_usd = mean_absolute_error(act_usd, preds_usd)
+    mae_myr_g = mean_absolute_error(act_myr_g, preds_myr_g)
+    
+    print("=" * 60)
+    print(" MALAYSIAN MULTI-TASK LEARNING ENGINE TRAINED ")
+    print("=" * 60)
+    print(f" Model A (Global Gold USD MAE) : ${mae_usd:.2f} / oz")
+    print(f" Combiner (Malaysian Gold MAE)  : RM {mae_myr_g:.2f} / g")
+    print("=" * 60)
+    
     artifact = {
-        "model": best_model,
-        "model_name": best_model_name,
-        "scaler": scaler,
-        "feature_columns": FEATURE_COLUMNS,
+        "engine": mtl_engine,
+        "model": mtl_engine.model_gold,
+        "scaler": mtl_engine.scaler_gold,
+        "feature_columns": ALL_FEATURE_COLUMNS,
+        "model_name": "MalaysianMultiTaskMTL",
         "train_period": "2010-01-01 to 2024-12-31",
         "records_count": len(df),
-        "train_mae": float(best_mae)
+        "train_mae_usd": float(mae_usd),
+        "train_mae_myr_g": float(mae_myr_g)
     }
     
     joblib.dump(artifact, output_model_path)

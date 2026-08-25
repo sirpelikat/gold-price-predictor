@@ -1,5 +1,8 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import pandas as pd
 from data_fetcher import get_current_gold_price, get_historical_gold_data, get_usd_myr_rate
 from model import train_and_predict, get_historical_with_predictions
@@ -15,9 +18,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mobile_app", "build", "web")
+if os.path.exists(WEB_DIR):
+    app.mount("/static_web", StaticFiles(directory=WEB_DIR, html=True), name="static_web")
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Malaysian Gold Price Prediction API"}
+    if os.path.exists(WEB_DIR):
+        index_path = os.path.join(WEB_DIR, "index.html")
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+    return {"message": "Welcome to the Malaysian Gold Price Prediction API. Visit /docs for API endpoints or /web for the dashboard."}
 
 @app.get("/api/current-price")
 def current_price():

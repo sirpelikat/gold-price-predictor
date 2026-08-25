@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
@@ -20,6 +21,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   Map<String, dynamic>? malaysiaMacro;
   Map<String, dynamic>? retrainingStatus;
   
+  bool isProMode = false;   // false = Casual Apple-Style View, true = Full Pro Analytics
   bool isUSD = false;       // false = MYR/g, true = USD/oz
   int forecastDays = 7;     // 7 = 7 Days, 30 = Monthly, 365 = Annual
   int historicalDays = 7;   // 7 = 7 Days, 30 = Monthly, 365 = Annual
@@ -144,78 +146,288 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     }
   }
 
+  // ==========================================
+  // LIQUID GLASS CONTAINER HELPER
+  // ==========================================
+  Widget _buildLiquidGlass({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+    EdgeInsetsGeometry? margin,
+    double borderRadius = 22.0,
+    Color? borderColor,
+    List<Color>? gradientColors,
+  }) {
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: gradientColors ?? [
+                  Colors.white.withValues(alpha: 0.09),
+                  Colors.white.withValues(alpha: 0.02),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(
+                color: borderColor ?? Colors.white.withValues(alpha: 0.12),
+                width: 1.0,
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF161618),
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
+      backgroundColor: const Color(0xFF090A0F),
+      body: Stack(
+        children: [
+          // Ambient Radiant iOS Glow Orbs
+          Positioned(
+            top: -60,
+            left: -40,
+            child: Container(
+              width: 220,
+              height: 220,
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+                shape: BoxShape.circle,
+                color: Colors.amber.withValues(alpha: 0.12),
               ),
-              child: const Icon(Icons.auto_graph, color: Colors.amber, size: 20),
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'Gold AI Predictor',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+          ),
+          Positioned(
+            top: 240,
+            right: -60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.cyanAccent.withValues(alpha: 0.07),
+              ),
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF1E1E22),
-        elevation: 0,
-        actions: [
-          // Currency Unit Toggle Button (MYR/g <-> USD/oz)
-          _buildCurrencyToggle(),
-          IconButton(
-            icon: isSyncing 
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
-                : const Icon(Icons.sync, color: Colors.amber, size: 22),
-            tooltip: 'Sync prediction logs',
-            onPressed: isSyncing ? null : _syncLogs,
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70, size: 22),
-            tooltip: 'Refresh data',
-            onPressed: _fetchAllData,
+          Positioned(
+            bottom: 60,
+            left: 20,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.deepPurpleAccent.withValues(alpha: 0.08),
+              ),
+            ),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.grey,
-          tabs: const [
-            Tab(icon: Icon(Icons.show_chart, size: 20), text: 'Forecast'),
-            Tab(icon: Icon(Icons.assessment, size: 20), text: 'Accuracy'),
-            Tab(icon: Icon(Icons.history, size: 20), text: 'Logs'),
-          ],
-        ),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-          : TabBarView(
-              controller: _tabController,
+          
+          SafeArea(
+            child: Column(
               children: [
-                _buildForecastTab(),
-                _buildAccuracyTab(),
-                _buildLogsTab(),
+                _buildLiquidAppBar(),
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                      : (isProMode
+                          ? TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildForecastTab(),
+                                _buildAccuracyTab(),
+                                _buildLogsTab(),
+                              ],
+                            )
+                          : _buildCasualView()),
+                ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // LIQUID GLASS APP BAR & CONTROLS
+  // ==========================================
+  Widget _buildLiquidAppBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.amber.shade400, Colors.orangeAccent.shade700],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.amber.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.black, size: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gold Intelligence',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      Text(
+                        'Malaysian Market AI',
+                        style: TextStyle(fontSize: 10, color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  _buildModeToggle(),
+                  const SizedBox(width: 8),
+                  _buildCurrencyToggle(),
+                ],
+              ),
+            ],
+          ),
+          if (isProMode) ...[
+            const SizedBox(height: 10),
+            Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.amber.withValues(alpha: 0.3), Colors.amber.withValues(alpha: 0.15)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                labelColor: Colors.amber,
+                unselectedLabelColor: Colors.white54,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                tabs: const [
+                  Tab(text: 'Forecast'),
+                  Tab(text: 'MLOps & Macro'),
+                  Tab(text: 'Daily Logs'),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeToggle() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () => setState(() => isProMode = false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                gradient: !isProMode
+                    ? LinearGradient(colors: [Colors.amber.shade400, Colors.orangeAccent.shade400])
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.spa, size: 12, color: !isProMode ? Colors.black : Colors.white60),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Casual',
+                    style: TextStyle(
+                      color: !isProMode ? Colors.black : Colors.white60,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => isProMode = true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                gradient: isProMode
+                    ? LinearGradient(colors: [Colors.cyanAccent.shade400, Colors.blueAccent.shade400])
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.insights, size: 12, color: isProMode ? Colors.black : Colors.white60),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Pro',
+                    style: TextStyle(
+                      color: isProMode ? Colors.black : Colors.white60,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildCurrencyToggle() {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFF2C2C34),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -223,15 +435,15 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isUSD = false),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: !isUSD ? Colors.amber : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
+                color: !isUSD ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 'MYR',
                 style: TextStyle(
-                  color: !isUSD ? Colors.black : Colors.grey,
+                  color: !isUSD ? Colors.white : Colors.white54,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
                 ),
@@ -241,15 +453,15 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isUSD = true),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: isUSD ? Colors.amber : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
+                color: isUSD ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 'USD',
                 style: TextStyle(
-                  color: isUSD ? Colors.black : Colors.grey,
+                  color: isUSD ? Colors.white : Colors.white54,
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
                 ),
@@ -257,6 +469,350 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // CASUAL USER VIEW (CLEAN PROGRESSIVE DISCLOSURE)
+  // ==========================================
+  Widget _buildCasualView() {
+    return RefreshIndicator(
+      color: Colors.amber,
+      onRefresh: _fetchAllData,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (currentPriceData == null) ...[
+              _buildConnectionErrorBanner(),
+              const SizedBox(height: 14),
+            ],
+            
+            // 1. Hero Liquid Glass Price Card
+            _buildHeroCasualPriceCard(),
+            const SizedBox(height: 14),
+
+            // 2. Apple-Style AI Verdict Capsule
+            _buildAiVerdictCapsule(),
+            const SizedBox(height: 14),
+
+            // 3. Clean Forecast Chart Card
+            _buildLiquidGlass(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AI Price Projection',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Next market trajectory',
+                            style: TextStyle(color: Colors.white54, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                      _buildTimeframeSelector(
+                        selectedDays: forecastDays,
+                        onChanged: _changeForecastTimeframe,
+                        accentColor: Colors.amber,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  isForecastLoading
+                      ? _buildChartLoadingSkeleton()
+                      : _buildForecastChart(predictionData, forecastDays),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 4. Quick BNM Physical Bullion Capsule
+            _buildQuickKijangEmasCapsule(),
+            const SizedBox(height: 14),
+
+            // 5. Pro Mode Teaser Card
+            _buildProModeTeaserCard(),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroCasualPriceCard() {
+    final double? priceMyr = (currentPriceData?['myr_per_g'] as num?)?.toDouble();
+    final double? priceUsd = (currentPriceData?['usd_per_oz'] as num?)?.toDouble();
+    final double rate = (currentPriceData?['usd_myr_rate'] as num?)?.toDouble() ?? 4.0365;
+
+    final String mainVal = isUSD
+        ? (priceUsd != null ? '\$${priceUsd.toStringAsFixed(2)}' : '---')
+        : (priceMyr != null ? 'RM ${priceMyr.toStringAsFixed(2)}' : '---');
+
+    final String unitLabel = isUSD ? 'per Troy Ounce' : 'per Gram';
+    final String subText = isUSD
+        ? (priceMyr != null ? '≈ RM ${priceMyr.toStringAsFixed(2)} / g • FX: $rate' : '')
+        : (priceUsd != null ? '≈ \$${priceUsd.toStringAsFixed(2)} / oz • FX: $rate' : '');
+
+    return _buildLiquidGlass(
+      gradientColors: [
+        Colors.amber.withValues(alpha: 0.12),
+        Colors.white.withValues(alpha: 0.02),
+      ],
+      borderColor: Colors.amber.withValues(alpha: 0.35),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: Colors.greenAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'LIVE SPOT PRICE',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'USD/MYR $rate',
+                  style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                mainVal,
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                unitLabel,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subText,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiVerdictCapsule() {
+    if (predictionData.isEmpty) return const SizedBox.shrink();
+
+    final first = predictionData.first;
+    final last = predictionData.last;
+
+    final double startVal = isUSD
+        ? ((first['price_usd'] as num?)?.toDouble() ?? 4500.0)
+        : ((first['price'] as num?)?.toDouble() ?? 580.0);
+
+    final double endVal = isUSD
+        ? ((last['price_usd'] as num?)?.toDouble() ?? startVal)
+        : ((last['price'] as num?)?.toDouble() ?? startVal);
+
+    final double deltaPct = ((endVal - startVal) / startVal) * 100;
+    final bool isBullish = deltaPct >= 0;
+
+    final String badgeText = isBullish ? 'Bullish Growth' : 'Mild Retracement';
+    final Color badgeColor = isBullish ? Colors.greenAccent : Colors.orangeAccent;
+    final IconData badgeIcon = isBullish ? Icons.trending_up : Icons.trending_down;
+
+    final String summary = isBullish
+        ? 'AI Model predicts a +${deltaPct.toStringAsFixed(2)}% rise over the next $forecastDays days to ${isUSD ? '\$${endVal.toStringAsFixed(0)}' : 'RM ${endVal.toStringAsFixed(2)}/g'}.'
+        : 'AI Model projects steady consolidation with a ${deltaPct.toStringAsFixed(2)}% adjustment over the next $forecastDays days.';
+
+    return _buildLiquidGlass(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      borderColor: badgeColor.withValues(alpha: 0.3),
+      gradientColors: [
+        badgeColor.withValues(alpha: 0.10),
+        Colors.white.withValues(alpha: 0.02),
+      ],
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: badgeColor.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+              border: Border.all(color: badgeColor.withValues(alpha: 0.4)),
+            ),
+            child: Icon(badgeIcon, color: badgeColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'AI VERDICT: $badgeText',
+                      style: TextStyle(
+                        color: badgeColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  summary,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, height: 1.3),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickKijangEmasCapsule() {
+    final kijang = currentPriceData?['kijang_emas'] as Map<String, dynamic>?;
+    if (kijang == null) return const SizedBox.shrink();
+
+    final double gramRetail = (kijang['one_gram_retail_myr'] as num?)?.toDouble() ?? 623.31;
+    final double spreadPct = (kijang['retail_spread_percent'] as num?)?.toDouble() ?? 4.10;
+
+    return _buildLiquidGlass(
+      padding: const EdgeInsets.all(14),
+      borderColor: Colors.amber.withValues(alpha: 0.25),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.monetization_on, color: Colors.amber, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Maybank Kijang Emas',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Physical Bullion: RM ${gramRetail.toStringAsFixed(2)} / g',
+                    style: const TextStyle(color: Colors.white60, fontSize: 11),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              '+${spreadPct.toStringAsFixed(1)}% Markup',
+              style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProModeTeaserCard() {
+    return GestureDetector(
+      onTap: () => setState(() => isProMode = true),
+      child: _buildLiquidGlass(
+        padding: const EdgeInsets.all(14),
+        borderColor: Colors.cyanAccent.withValues(alpha: 0.25),
+        gradientColors: [
+          Colors.cyanAccent.withValues(alpha: 0.08),
+          Colors.white.withValues(alpha: 0.02),
+        ],
+        child: Row(
+          children: [
+            const Icon(Icons.insights, color: Colors.cyanAccent, size: 20),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Looking for deep quant analysis?',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Switch to Pro Mode for Brent Oil, KLCI, BNM OPR & 5-Fold MLOps models.',
+                    style: TextStyle(color: Colors.white54, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.cyanAccent, size: 13),
+          ],
+        ),
       ),
     );
   }
@@ -444,35 +1000,22 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     final double? priceMyr = (currentPriceData?['myr_per_g'] as num?)?.toDouble();
     final double? priceUsd = (currentPriceData?['usd_per_oz'] as num?)?.toDouble();
     final double? priceKg = (currentPriceData?['myr_per_kg'] as num?)?.toDouble();
-    final double rate = (currentPriceData?['usd_myr_rate'] as num?)?.toDouble() ?? 4.45;
+    final double rate = (currentPriceData?['usd_myr_rate'] as num?)?.toDouble() ?? 4.0365;
 
     final String mainPrice = isUSD
         ? (priceUsd != null ? '\$${priceUsd.toStringAsFixed(2)} / oz' : '---')
         : (priceMyr != null ? 'RM ${priceMyr.toStringAsFixed(2)} / g' : '---');
 
     final String subPrice = isUSD
-        ? (priceMyr != null ? '≈ RM ${priceMyr.toStringAsFixed(2)} / g (USD/MYR: ${rate.toStringAsFixed(2)})' : '')
+        ? (priceMyr != null ? '≈ RM ${priceMyr.toStringAsFixed(2)} / g (USD/MYR: $rate)' : '')
         : (priceUsd != null ? '≈ \$${priceUsd.toStringAsFixed(2)} / oz • RM ${priceKg != null ? priceKg.toStringAsFixed(2) : ''} / kg' : '');
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2C2C34), Color(0xFF202026)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.3), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return _buildLiquidGlass(
+      gradientColors: [
+        Colors.amber.withValues(alpha: 0.12),
+        Colors.white.withValues(alpha: 0.02),
+      ],
+      borderColor: Colors.amber.withValues(alpha: 0.35),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -481,40 +1024,40 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
             children: [
               Text(
                 isUSD ? 'LIVE GOLD PRICE (USD / OZ)' : 'LIVE GOLD PRICE (MYR / G)',
-                style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.1),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.circle, color: Colors.green, size: 8),
+                    Icon(Icons.circle, color: Colors.greenAccent, size: 7),
                     SizedBox(width: 4),
-                    Text('Live Yahoo Feed', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.w600)),
+                    Text('Live Feed', style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             mainPrice,
             style: const TextStyle(
               color: Colors.amber,
               fontSize: 32,
               fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
+              letterSpacing: -0.6,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subPrice,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ],
       ),
@@ -530,14 +1073,9 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     final double gramRetail = (kijang['one_gram_retail_myr'] as num?)?.toDouble() ?? (sell1oz / 31.1034768);
     final double spreadPct = (kijang['retail_spread_percent'] as num?)?.toDouble() ?? 4.10;
 
-    return Container(
-      width: double.infinity,
+    return _buildLiquidGlass(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E24),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.4), width: 1),
-      ),
+      borderColor: Colors.amber.withValues(alpha: 0.3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -548,12 +1086,12 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
                         color: Colors.amber.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.monetization_on, color: Colors.amber, size: 14),
+                      child: const Icon(Icons.monetization_on, color: Colors.amber, size: 13),
                     ),
                     const SizedBox(width: 8),
                     const Expanded(
@@ -577,7 +1115,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   '+${spreadPct.toStringAsFixed(1)}% Spread',
@@ -609,14 +1147,9 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
     final bool isFestive = malaysiaMacro?['festive_season_active'] == true;
     final String festivalName = malaysiaMacro?['active_festival_name'] ?? 'Normal Demand';
 
-    return Container(
-      width: double.infinity,
+    return _buildLiquidGlass(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF22222A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
+      borderColor: Colors.cyanAccent.withValues(alpha: 0.25),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

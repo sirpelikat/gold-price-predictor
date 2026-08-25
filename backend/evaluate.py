@@ -51,16 +51,16 @@ def evaluate_model_2025(
     cur_myr_g = np.asarray(eval_df['gold_myr_g'].to_numpy(dtype=np.float64), dtype=np.float64)
     
     # Metrics for USD
-    mae_usd = float(mean_absolute_error(actual_usd, pred_usd))
+    mae_usd = mean_absolute_error(actual_usd, pred_usd)
     rmse_usd = float(np.sqrt(mean_squared_error(actual_usd, pred_usd)))
     mape_usd = float(np.mean(np.abs((actual_usd - pred_usd) / actual_usd)) * 100)
-    r2_usd = float(r2_score(actual_usd, pred_usd))
+    r2_usd = r2_score(actual_usd, pred_usd)
     
     # Metrics for MYR / g
-    mae_myr_g = float(mean_absolute_error(actual_myr_g, pred_myr_g))
+    mae_myr_g = mean_absolute_error(actual_myr_g, pred_myr_g)
     rmse_myr_g = float(np.sqrt(mean_squared_error(actual_myr_g, pred_myr_g)))
     mape_myr_g = float(np.mean(np.abs((actual_myr_g - pred_myr_g) / actual_myr_g)) * 100)
-    r2_myr_g = float(r2_score(actual_myr_g, pred_myr_g))
+    r2_myr_g = r2_score(actual_myr_g, pred_myr_g)
     
     # Directional Accuracy (MYR/g)
     actual_dir_myr = np.sign(actual_myr_g - cur_myr_g)

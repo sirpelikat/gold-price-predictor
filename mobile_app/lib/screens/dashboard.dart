@@ -262,56 +262,64 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   // ==========================================
   Widget _buildLiquidAppBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.amber.shade400, Colors.orangeAccent.shade700],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.amber.shade400, Colors.orangeAccent.shade700],
                         ),
-                      ],
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.amber.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.auto_awesome, color: Colors.black, size: 15),
                     ),
-                    child: const Icon(Icons.auto_awesome, color: Colors.black, size: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Gold Intelligence',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          color: Colors.white,
-                          letterSpacing: -0.2,
-                        ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Gold AI',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            'Malaysian Market',
+                            style: TextStyle(fontSize: 10, color: Colors.white54),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Malaysian Market AI',
-                        style: TextStyle(fontSize: 10, color: Colors.white54),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 6),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _buildModeToggle(),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _buildCurrencyToggle(),
                 ],
               ),
@@ -355,10 +363,10 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
 
   Widget _buildModeToggle() {
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
@@ -367,23 +375,23 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isProMode = false),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 gradient: !isProMode
                     ? LinearGradient(colors: [Colors.amber.shade400, Colors.orangeAccent.shade400])
                     : null,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.spa, size: 12, color: !isProMode ? Colors.black : Colors.white60),
-                  const SizedBox(width: 4),
+                  Icon(Icons.spa, size: 11, color: !isProMode ? Colors.black : Colors.white60),
+                  const SizedBox(width: 3),
                   Text(
                     'Casual',
                     style: TextStyle(
                       color: !isProMode ? Colors.black : Colors.white60,
                       fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -393,23 +401,23 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isProMode = true),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 gradient: isProMode
                     ? LinearGradient(colors: [Colors.cyanAccent.shade400, Colors.blueAccent.shade400])
                     : null,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.insights, size: 12, color: isProMode ? Colors.black : Colors.white60),
-                  const SizedBox(width: 4),
+                  Icon(Icons.insights, size: 11, color: isProMode ? Colors.black : Colors.white60),
+                  const SizedBox(width: 3),
                   Text(
                     'Pro',
                     style: TextStyle(
                       color: isProMode ? Colors.black : Colors.white60,
                       fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                      fontSize: 10,
                     ),
                   ),
                 ],
@@ -423,10 +431,10 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
 
   Widget _buildCurrencyToggle() {
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
@@ -435,17 +443,17 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isUSD = false),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 color: !isUSD ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 'MYR',
                 style: TextStyle(
                   color: !isUSD ? Colors.white : Colors.white54,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
             ),
@@ -453,17 +461,17 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           GestureDetector(
             onTap: () => setState(() => isUSD = true),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 color: isUSD ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 'USD',
                 style: TextStyle(
                   color: isUSD ? Colors.white : Colors.white54,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
             ),

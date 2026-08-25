@@ -762,7 +762,7 @@ logged_at,target_date,predicted_price_myr_g,predicted_price_usd,actual_price_usd
 2026-08-22 08:06:32,2026-08-22,594.98,4584.65,,,,,HistGradientBoosting
 2026-08-22 08:06:32,2026-08-23,592.68,4566.93,,,,,HistGradientBoosting
 2026-08-22 08:06:32,2026-08-24,590.86,4544.43,4640.8,603.39,96.37,2.08,HistGradientBoosting
-2026-08-22 08:06:32,2026-08-25,587.84,4521.24,4695.9,610.55,174.66,3.72,HistGradientBoosting
+2026-08-22 08:06:32,2026-08-25,587.84,4521.24,4697.4,610.74,176.16,3.75,HistGradientBoosting
 2026-08-22 08:06:32,2026-08-26,582.87,4491.34,,,,,HistGradientBoosting
 2026-08-22 08:06:32,2026-08-27,583.25,4494.27,,,,,HistGradientBoosting
 2026-08-22 08:06:32,2026-08-28,581.17,4478.24,,,,,HistGradientBoosting

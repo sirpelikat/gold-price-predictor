@@ -110,4 +110,30 @@ class ApiService {
     }
     return null;
   }
+
+  static Future<Map<String, dynamic>?> getRetrainingStatus() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/retraining-status')).timeout(timeoutDuration);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(json.decode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Error fetching retraining status: $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> triggerRetraining({bool force = false}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/retrain?force=$force'),
+      ).timeout(const Duration(seconds: 45));
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(json.decode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Error triggering retraining: $e');
+    }
+    return null;
+  }
 }

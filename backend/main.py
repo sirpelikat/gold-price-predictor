@@ -148,3 +148,14 @@ def prediction_logs():
 def sync_prediction_logs():
     from prediction_logger import sync_actual_prices_and_update_metrics
     return sync_actual_prices_and_update_metrics()
+
+@app.get("/api/retraining-status")
+def retraining_status():
+    from retraining_pipeline import load_model_registry
+    return load_model_registry()
+
+@app.post("/api/retrain")
+def trigger_retraining(force: bool = False):
+    from retraining_pipeline import run_automated_retraining_pipeline
+    result = run_automated_retraining_pipeline(force=force)
+    return result

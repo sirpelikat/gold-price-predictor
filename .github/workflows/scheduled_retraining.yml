@@ -1,0 +1,44 @@
+name: Automated Malaysian Gold Model Retraining Pipeline
+
+on:
+  schedule:
+    # Runs at 00:00 UTC on the 1st of every month (weekend/pre-market)
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      force_promotion:
+        description: 'Force promotion even if gate score is within margin'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  retrain-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+
+    - name: Execute Automated Walk-Forward Retraining Pipeline
+      run: |
+        cd backend
+        python retraining_pipeline.py
+
+    - name: Commit and Push Versioned Model Artifact & Registry
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add backend/models/ backend/data/gold_master_timeline.csv backend/gold_model.joblib
+        git diff --quiet && git diff --staged --quiet || (git commit -m "chore(mlops): automated model retraining and version promotion [skip ci]" && git push)

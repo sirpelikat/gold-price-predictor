@@ -18,6 +18,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   Map<String, dynamic>? modelMetrics;
   Map<String, dynamic>? logsData;
   Map<String, dynamic>? malaysiaMacro;
+  Map<String, dynamic>? retrainingStatus;
   
   bool isUSD = false;       // false = MYR/g, true = USD/oz
   int forecastDays = 7;     // 7 = 7 Days, 30 = Monthly, 365 = Annual
@@ -27,6 +28,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
   bool isForecastLoading = false;
   bool isHistoricalLoading = false;
   bool isSyncing = false;
+  bool isRetraining = false;
 
   @override
   void initState() {
@@ -51,6 +53,7 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
       ApiService.getModelMetrics(),
       ApiService.getPredictionLogs(),
       ApiService.getMalaysiaMacroData(),
+      ApiService.getRetrainingStatus(),
     ]);
 
     if (mounted) {
@@ -61,8 +64,28 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
         modelMetrics = results[3] as Map<String, dynamic>?;
         logsData = results[4] as Map<String, dynamic>?;
         malaysiaMacro = results[5] as Map<String, dynamic>?;
+        retrainingStatus = results[6] as Map<String, dynamic>?;
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _runRetraining() async {
+    setState(() => isRetraining = true);
+    final res = await ApiService.triggerRetraining();
+    if (mounted) {
+      setState(() => isRetraining = false);
+      _fetchAllData();
+      final bool promoted = res?['promoted'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(promoted 
+              ? 'Model successfully retrained & promoted to production!' 
+              : (res?['reason'] ?? 'Retraining check completed.')),
+          backgroundColor: promoted ? Colors.green.shade800 : Colors.orange.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -1156,6 +1179,8 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
         children: [
           _buildModelInfoCard(),
           const SizedBox(height: 16),
+          _buildRetrainingManagementCard(),
+          const SizedBox(height: 16),
           _buildMultiTaskArchitectureCard(),
           const SizedBox(height: 20),
           const Text('2025 Out-of-Sample Test Benchmark', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
@@ -1163,6 +1188,92 @@ class DashboardScreenState extends State<DashboardScreen> with SingleTickerProvi
           _buildMetricsGrid(),
           const SizedBox(height: 20),
           _buildFeaturesCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRetrainingManagementCard() {
+    final String prodVersion = retrainingStatus?['production_version'] ?? 'v2026.08.25';
+    final String lastRetrained = retrainingStatus?['last_retrained_at'] ?? '2026-08-25 15:00 UTC';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.published_with_changes, color: Colors.greenAccent, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'MLOPS AUTOMATED RETRAINING',
+                    style: TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  prodVersion,
+                  style: const TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Expanding-Window 5-Fold Walk-Forward Validation with Automated Promotion Gate & Rollback Registry.',
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.schedule, color: Colors.grey, size: 14),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Last Retrained: $lastRetrained',
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.greenAccent.shade700,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isRetraining ? null : _runRetraining,
+              icon: isRetraining
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                  : const Icon(Icons.bolt, size: 16),
+              label: Text(
+                isRetraining ? 'Evaluating Walk-Forward Folds...' : 'Run Walk-Forward Retraining',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
+          ),
         ],
       ),
     );

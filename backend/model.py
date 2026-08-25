@@ -11,16 +11,21 @@ MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gold_mode
 
 _model_artifact = None
 
-def load_model_artifact():
-    """Loads the pre-trained model artifact from disk."""
+def load_model_artifact(force_reload: bool = False):
+    """Loads or hot-reloads the pre-trained model artifact from disk."""
     global _model_artifact
-    if _model_artifact is None and os.path.exists(MODEL_PATH):
+    if (_model_artifact is None or force_reload) and os.path.exists(MODEL_PATH):
         try:
             _model_artifact = joblib.load(MODEL_PATH)
+            print(f"Model artifact loaded successfully: {_model_artifact.get('version', 'v1.0')}")
         except Exception as e:
             print(f"Error loading model artifact: {e}")
             _model_artifact = None
     return _model_artifact
+
+def reload_model():
+    """Forces an in-memory hot-reload of the latest promoted model."""
+    return load_model_artifact(force_reload=True)
 
 def extract_features_df(df: pd.DataFrame) -> pd.DataFrame:
     """Extracts features using prepare_datasets compute_features."""

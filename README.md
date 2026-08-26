@@ -113,6 +113,8 @@ gold-price-predictor/
 │   │       └── api_service.dart        # REST client & auto-host resolution (Android/Web/Desktop)
 │   └── pubspec.yaml                    # Flutter dependencies
 │
+├── run_all.bat                         # One-click Windows CMD full-stack launcher
+├── run_all.ps1                         # One-click Windows PowerShell full-stack launcher
 └── .github/
     └── workflows/
         └── scheduled_retraining.yml    # Monthly CI/CD automated retraining workflow
@@ -126,7 +128,27 @@ gold-price-predictor/
 - [Python 3.10+](https://www.python.org/downloads/)
 - [Flutter SDK](https://docs.flutter.dev/get-started/install)
 
-### 2. Set Up & Run Backend
+---
+
+### 2. Run Full-Stack (One-Click)
+
+Launch both the **FastAPI Backend** and **Flutter Frontend** concurrently with a single command from the project root:
+
+- **Windows Command Prompt / Double-Click**:
+  ```cmd
+  run_all.bat
+  ```
+
+- **Windows PowerShell**:
+  ```powershell
+  .\run_all.ps1
+  ```
+
+---
+
+### 3. Run Components Individually
+
+#### **Backend (FastAPI)**
 ```bash
 cd backend
 python -m venv venv
@@ -139,15 +161,31 @@ python -m venv venv
 pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+> **API Documentation**: Access Swagger UI at `http://localhost:8000/docs`.
 
-> **API Documentation**: Visit `http://127.0.0.1:8000/docs` to test endpoints via Swagger UI.
-
-### 3. Set Up & Run Mobile App
+#### **Frontend / Mobile App (Flutter)**
 ```bash
 cd mobile_app
 flutter pub get
 flutter run
 ```
+
+---
+
+### 4. Unified Full-Stack Web Mode *(Single Port 8000)*
+To compile the Flutter UI into web assets and have the FastAPI backend serve both the UI and REST API on `http://localhost:8000`:
+
+```powershell
+# 1. Build Flutter Web
+cd mobile_app
+flutter build web
+
+# 2. Run FastAPI Backend
+cd ..\backend
+.\venv\Scripts\Activate.ps1
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+Visit `http://localhost:8000` to interact with the full dashboard.
 
 ---
 

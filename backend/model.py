@@ -73,7 +73,8 @@ def fetch_recent_multi_asset_data(days=90):
 
 def get_historical_with_predictions(days=7):
     """
-    Fetches recent historical data and generates dual Malaysian & Global model predictions.
+    Fetches recent historical data and generates dual Malaysian & Global model predictions,
+    aligning directly with official 8:00 AM logged snapshots for unified comparison.
     """
     df_raw = fetch_recent_multi_asset_data(days=days + 60)
     if df_raw.empty:
@@ -83,30 +84,53 @@ def get_historical_with_predictions(days=7):
     target_slice = feat_df.tail(days).copy()
     results = []
     
+    # Load 8:00 AM logged snapshot dictionary
+    logged_map = {}
+    logs_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "prediction_history.csv")
+    if os.path.exists(logs_file):
+        try:
+            log_df = pd.read_csv(logs_file)
+            if not log_df.empty:
+                for _, row in log_df.iterrows():
+                    t_date = str(row['target_date'])
+                    p_myr = row.get('predicted_price_myr_g')
+                    p_usd = row.get('predicted_price_usd')
+                    if pd.notna(p_usd) and pd.notna(p_myr):
+                        logged_map[t_date] = {
+                            'pred_usd': float(p_usd),
+                            'pred_myr_g': float(p_myr)
+                        }
+        except Exception as e:
+            print(f"Notice reading log map for historical alignment: {e}")
+
     artifact = load_model_artifact()
-    troy_oz_to_g = 31.1034768
     
     if artifact is not None and "engine" in artifact:
         engine = artifact["engine"]
         
         for idx in range(len(target_slice)):
-            loc_idx = feat_df.index.get_loc(target_slice.index[idx])
+            date_str = target_slice.index[idx].strftime('%Y-%m-%d')
             actual_usd = float(target_slice['gold_usd'].iloc[idx])
             actual_myr_g = float(target_slice['gold_myr_g'].iloc[idx])
             
-            if loc_idx > 0:
-                prev_row = feat_df.iloc[loc_idx - 1:loc_idx]
-                prev_gold_usd = float(feat_df['gold_usd'].iloc[loc_idx - 1])
-                prev_usd_myr = float(feat_df['usd_myr'].iloc[loc_idx - 1])
-                
-                res = engine.predict_components(prev_row, prev_gold_usd, prev_usd_myr)
-                pred_usd = res['predicted_gold_usd']
-                pred_myr_g = res['predicted_myr_g_consensus']
+            # Prefer official 8:00 AM snapshot log if present for perfect alignment
+            if date_str in logged_map:
+                pred_usd = logged_map[date_str]['pred_usd']
+                pred_myr_g = logged_map[date_str]['pred_myr_g']
             else:
-                pred_usd = actual_usd
-                pred_myr_g = actual_myr_g
+                loc_idx = feat_df.index.get_loc(target_slice.index[idx])
+                if loc_idx > 0:
+                    prev_row = feat_df.iloc[loc_idx - 1:loc_idx]
+                    prev_gold_usd = float(feat_df['gold_usd'].iloc[loc_idx - 1])
+                    prev_usd_myr = float(feat_df['usd_myr'].iloc[loc_idx - 1])
+                    
+                    res = engine.predict_components(prev_row, prev_gold_usd, prev_usd_myr)
+                    pred_usd = res['predicted_gold_usd']
+                    pred_myr_g = res['predicted_myr_g_consensus']
+                else:
+                    pred_usd = actual_usd
+                    pred_myr_g = actual_myr_g
                 
-            date_str = target_slice.index[idx].strftime('%Y-%m-%d')
             results.append({
                 "date": date_str,
                 "price": actual_myr_g,
@@ -116,14 +140,21 @@ def get_historical_with_predictions(days=7):
             })
     else:
         for date_val, row in target_slice.iterrows():
+            date_str = date_val.strftime('%Y-%m-%d')
             usd_val = float(row['gold_usd'])
             myr_val = float(row['gold_myr_g'])
+            if date_str in logged_map:
+                p_usd = logged_map[date_str]['pred_usd']
+                p_myr = logged_map[date_str]['pred_myr_g']
+            else:
+                p_usd = usd_val
+                p_myr = myr_val
             results.append({
-                "date": date_val.strftime('%Y-%m-%d'),
+                "date": date_str,
                 "price": myr_val,
                 "price_usd": usd_val,
-                "predicted_price": myr_val,
-                "predicted_price_usd": usd_val
+                "predicted_price": p_myr,
+                "predicted_price_usd": p_usd
             })
             
     return results

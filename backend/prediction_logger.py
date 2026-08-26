@@ -40,8 +40,13 @@ def take_daily_8am_snapshot():
     predictions = train_and_predict(days_to_predict=7)
     rows = []
     for p in predictions:
-        price_usd_oz = float(p['price'])
-        price_myr_g = (price_usd_oz * rate) / 31.1034768
+        price_myr_g = float(p.get('price', 0.0))
+        price_usd_oz = float(p.get('price_usd', 0.0))
+        if price_usd_oz == 0.0 and price_myr_g > 0:
+            price_usd_oz = (price_myr_g * 31.1034768) / rate
+        elif price_myr_g == 0.0 and price_usd_oz > 0:
+            price_myr_g = (price_usd_oz * rate) / 31.1034768
+
         rows.append({
             "logged_at": snapshot_time_str,
             "target_date": p['date'],
@@ -51,7 +56,7 @@ def take_daily_8am_snapshot():
             "actual_price_myr_g": None,
             "error_usd": None,
             "percentage_error": None,
-            "model_name": "HistGradientBoosting"
+            "model_name": "MalaysianMultiTaskMTL"
         })
         
     new_df = pd.DataFrame(rows)

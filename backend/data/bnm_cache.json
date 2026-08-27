@@ -1,19 +1,19 @@
 {
   "kijang_emas_latest": {
-    "cached_date": "2026-08-26",
+    "cached_date": "2026-08-27",
     "data": {
-      "effective_date": "2026-08-24",
+      "effective_date": "2026-08-26",
       "one_oz": {
-        "buying": 19074,
-        "selling": 19849
+        "buying": 19150,
+        "selling": 19950
       },
       "half_oz": {
-        "buying": 9537,
-        "selling": 10112
+        "buying": 9575,
+        "selling": 10163
       },
       "quarter_oz": {
-        "buying": 4768,
-        "selling": 5149
+        "buying": 4787,
+        "selling": 5176
       }
     }
   },

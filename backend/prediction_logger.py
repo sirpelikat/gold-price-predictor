@@ -13,6 +13,33 @@ METRICS_LOG_FILE = os.path.join(LOGS_DIR, "model_performance_log.json")
 def ensure_logs_dir():
     os.makedirs(LOGS_DIR, exist_ok=True)
 
+def clean_and_deduplicate_logs(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cleans and deduplicates the log dataframe so that each target_date has only ONE entry,
+    prioritizing the superior production model (MalaysianMultiTaskMTL) and lowest percentage error.
+    """
+    if df.empty:
+        return df
+    
+    model_priority = {
+        'MalaysianMultiTaskMTL': 1,
+        'HistGradientBoosting': 2
+    }
+    
+    df = df.copy()
+    df['model_rank'] = df['model_name'].map(lambda m: model_priority.get(m, 99))
+    df['err_sort'] = df['percentage_error'].fillna(999.0)
+    
+    # Sort so MalaysianMultiTaskMTL with lowest error & latest log comes first
+    df = df.sort_values(
+        by=['target_date', 'model_rank', 'err_sort', 'logged_at'],
+        ascending=[True, True, True, False]
+    )
+    
+    df = df.drop_duplicates(subset=['target_date'], keep='first')
+    df = df.drop(columns=['model_rank', 'err_sort'], errors='ignore')
+    return df
+
 def take_daily_8am_snapshot():
     """
     Takes and permanently locks the official daily prediction snapshot at 8:00 AM everyday.
@@ -28,11 +55,12 @@ def take_daily_8am_snapshot():
     
     rate = get_usd_myr_rate()
     
-    # Check if today's 8am prediction has already been locked
+    # Check if today's 8am prediction has already been locked with MalaysianMultiTaskMTL
     if os.path.exists(PREDICTIONS_LOG_FILE):
         df = pd.read_csv(PREDICTIONS_LOG_FILE)
-        # If we already have a prediction logged for today or tomorrow from 8am, keep it
-        existing_today = df[(df['target_date'] >= today_str) & (df['logged_at'].str.contains('08:00:00'))]
+        existing_today = df[(df['target_date'] >= today_str) & 
+                            (df['logged_at'].str.contains('08:00:00')) & 
+                            (df['model_name'] == 'MalaysianMultiTaskMTL')]
         if not existing_today.empty:
             return df
             
@@ -63,18 +91,17 @@ def take_daily_8am_snapshot():
     if os.path.exists(PREDICTIONS_LOG_FILE):
         existing_df = pd.read_csv(PREDICTIONS_LOG_FILE)
         combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-        # Keep earlier 8:00 AM snapshot if already present
-        combined_df.drop_duplicates(subset=['target_date', 'model_name'], keep='first', inplace=True)
+        combined_df = clean_and_deduplicate_logs(combined_df)
     else:
-        combined_df = new_df
+        combined_df = clean_and_deduplicate_logs(new_df)
         
     combined_df.to_csv(PREDICTIONS_LOG_FILE, index=False)
     return combined_df
 
-def log_predictions(predictions: list, model_name: str = "HistGradientBoosting", rate: float = None):
+def log_predictions(predictions: list, model_name: str = "MalaysianMultiTaskMTL", rate: float = None):
     """
     Logs generated predictions to prediction_history.csv with 8:00 AM snapshot policy.
-    Avoids duplicate entries for the same target date and model version.
+    Avoids duplicate entries for the same target date, keeping only the best model.
     """
     ensure_logs_dir()
     if rate is None:
@@ -105,9 +132,9 @@ def log_predictions(predictions: list, model_name: str = "HistGradientBoosting",
     if os.path.exists(PREDICTIONS_LOG_FILE):
         existing_df = pd.read_csv(PREDICTIONS_LOG_FILE)
         combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-        combined_df.drop_duplicates(subset=['target_date', 'model_name'], keep='first', inplace=True)
+        combined_df = clean_and_deduplicate_logs(combined_df)
     else:
-        combined_df = new_df
+        combined_df = clean_and_deduplicate_logs(new_df)
         
     combined_df.to_csv(PREDICTIONS_LOG_FILE, index=False)
     return combined_df
@@ -288,6 +315,7 @@ def get_prediction_logs():
         try:
             df = pd.read_csv(PREDICTIONS_LOG_FILE)
             if not df.empty:
+                df = clean_and_deduplicate_logs(df)
                 df = df.sort_values(by='target_date', ascending=False)
                 # Clean up NaN / NaT values to None for clean JSON serialization
                 raw_logs = df.to_dict(orient='records')

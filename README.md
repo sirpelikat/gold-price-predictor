@@ -10,14 +10,14 @@ A production-grade, specialized machine learning platform and cross-platform mob
 - **Synthesized $\text{MYR/g}$ Target**: Evaluates gold directly in Ringgit per gram using the official conversion:
   $$\text{Gold Price (MYR/g)} = \frac{\text{Gold USD Price (GC=F)} \times \text{USD/MYR Rate (USDMYR=X)}}{31.1034768}$$
 - **🪙 BNM Kijang Emas Physical Bullion Spread**: Live integration with the **Bank Negara Malaysia Open API** (`/public/kijang-emas`) to display official Maybank bullion selling/buying rates and physical retail spreads (+4.10% over paper spot).
-- **🛢️ Macroeconomic Drivers**: Incorporates **Brent Crude Oil (`BZ=F`)** (petroleum export revenue $\rightarrow$ Ringgit strength), **FBM KLCI (`^KLSE`)** (local market sentiment), and **BNM Overnight Policy Rate (2.75% OPR)**.
+- **🛢️ Macroeconomic Drivers**: Incorporates **Brent Crude Oil (`BZ=F`)** (petroleum export revenue $\rightarrow$ Ringgit strength), **FBM KLCI (`^KLSE`)** (local market sentiment), and **BNM Overnight Policy Rate (OPR)**.
 - **🎉 Malaysian Festive Seasonality**: Features 30-day pre-festival indicator flags for **Hari Raya Aidilfitri**, **Chinese New Year**, and **Deepavali** (2010–2030) to capture local physical buying surges.
 
-### 2. 🧠 Multi-Task Learning (MTL) Dual-Engine Architecture
+### 2. 🧠 Multi-Task Learning (MTL) Champion Engine Architecture
 - **Model A (Global Gold Engine)**: Predicts $\Delta \text{Gold}_{\text{USD/oz}}$ driven by 10Y US Treasury yields (`^TNX`), US Dollar Index (`DX-Y.NYB`), and global volatility.
 - **Model B (Currency FX Engine)**: Predicts $\Delta \text{USD/MYR}$ driven by Brent Oil, FBM KLCI, and BNM OPR.
 - **Model C (Localized MYR/g Engine)**: Predicts $\Delta \text{Gold}_{\text{MYR/g}}$ directly with Malaysian festive seasonality.
-- **Ensemble Combiner**: Blends Model A $\times$ Model B with Model C (60:40) to safeguard against currency shocks.
+- **Ensemble Combiner**: Blends Model A $\times$ Model B with Model C (60:40) into the unified **`MalaysianMultiTaskMTL`** champion model.
 
 ### 3. 🛡️ MLOps Automated Retraining & Promotion Gate
 - **Expanding-Window Walk-Forward Validation**: Evaluates models across 5 sequential chronological folds (`TimeSeriesSplit`) without future data leakage.
@@ -25,15 +25,19 @@ A production-grade, specialized machine learning platform and cross-platform mob
 - **Model Versioning & Hot-Swap**: Promoted models are archived in `backend/models/archive/` and swapped in-memory with zero server downtime.
 - **CI/CD Cloud Retraining**: [`.github/workflows/scheduled_retraining.yml`](.github/workflows/scheduled_retraining.yml) automatically executes monthly cloud retraining on GitHub Actions.
 
-### 4. 🔒 8:00 AM Daily Snapshot & Continuous Audit Trail
+### 4. 🔒 8:00 AM Daily Snapshot & Single-Authoritative Audit Trail
 - **8:00 AM Daily Snapshot Policy**: Daily forward predictions are permanently snapshotted and locked every morning at 8:00 AM.
-- **Auto-Sync Reconciliation**: Daily predictions are matched against official Yahoo Finance settlement closes with error tracking.
-- **Interactive Log Filters**: Filter historical logs by `[ All ]`, `[ Verified ]`, and `[ Pending ]` with market close countdown badges.
+- **Champion-Only Deduplication**: Enforces strict single-record deduplication per target date, prioritizing the production champion model (`MalaysianMultiTaskMTL`) and lowest variance.
+- **Auto-Sync Reconciliation**: Daily predictions are automatically matched against official market settlement closes with error tracking.
+- **Interactive Log Filters**: Filter historical logs by `[ All ]`, `[ Verified ]`, and `[ Pending ]` with countdown badges.
 
-### 5. 📱 Premium Cross-Platform Mobile Dashboard
-- **Global Currency Switcher**: Instant conversion across the app between **`MYR / g`** and **`USD / oz`**.
-- **Segmented Timeframe Selectors**: Interactive **`7D`** (Weekly), **`1M`** (Monthly), and **`1Y`** (Annual) views.
-- **Dual-Line Comparison Chart**: Solid blue line (Actual Market Close) vs Dashed amber line (Model Prediction).
+### 5. 📱 Liquid Glass UI & Dual Experience Modes
+- **Casual Mode**: Clean, high-level Apple-style view featuring the live spot price, AI Verdict capsule, quick projection chart, and Maybank Kijang Emas spread.
+- **Pro Mode**: In-depth analytics across 3 sub-tabs:
+  1. *AI Forecast*: Interactive 7-Day, 30-Day, and 365-Day projections.
+  2. *MLOps & Macro*: Walk-forward CV benchmarks, real-time macro drivers, and one-tap model retraining.
+  3. *Daily Logs*: Day-by-day historical audit trail comparing predicted prices vs actual market closes.
+- **Global Currency Switcher**: Instant conversion across the entire app between **`MYR / g`** and **`USD / oz`**.
 
 ---
 
@@ -106,9 +110,9 @@ gold-price-predictor/
 │
 ├── mobile_app/
 │   ├── lib/
-│   │   ├── main.dart                   # App entry point & theme
+│   │   ├── main.dart                   # App entry point & dark theme
 │   │   ├── screens/
-│   │   │   └── dashboard.dart          # Multi-tab dashboard (Forecast, Model Analysis, Daily Logs)
+│   │   │   └── dashboard.dart          # Casual / Pro liquid glass dashboard
 │   │   └── services/
 │   │       └── api_service.dart        # REST client & auto-host resolution (Android/Web/Desktop)
 │   └── pubspec.yaml                    # Flutter dependencies
@@ -172,20 +176,18 @@ flutter run
 
 ---
 
-### 4. Unified Full-Stack Web Mode *(Single Port 8000)*
-To compile the Flutter UI into web assets and have the FastAPI backend serve both the UI and REST API on `http://localhost:8000`:
+### 4. Troubleshooting
 
-```powershell
-# 1. Build Flutter Web
-cd mobile_app
-flutter build web
-
-# 2. Run FastAPI Backend
-cd ..\backend
-.\venv\Scripts\Activate.ps1
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-Visit `http://localhost:8000` to interact with the full dashboard.
+#### Android Emulator Black Screen (App Startup)
+If the Android emulator starts normally but the app displays a black screen:
+1. **Disable Impeller (Vulkan fallback to OpenGL)**:
+   ```bash
+   flutter run --no-enable-impeller
+   ```
+2. **Cold Boot the Emulator**:
+   * Open Android Studio $\rightarrow$ Device Manager $\rightarrow$ Click `...` next to the virtual device $\rightarrow$ Select **Cold Boot Now** or **Wipe Data**.
+3. **Change Emulator Graphics Renderer**:
+   * In Android Studio Device Manager, edit device $\rightarrow$ *Show Advanced Settings* $\rightarrow$ Set **Graphics** to **Software - GLES 2.0**.
 
 ---
 
